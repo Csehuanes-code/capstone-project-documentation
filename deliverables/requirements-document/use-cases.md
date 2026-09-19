@@ -1,6 +1,6 @@
 ## Especificación de Casos de Uso
 
-![Status: Piloto](https://img.shields.io/badge/Status-Piloto-blue?style=flat-square) ![Contexto: Académico](https://img.shields.io/badge/Contexto-Acad%C3%A9mico-lightgrey?style=flat-square) ![Estándar: ISO 29148](https://img.shields.io/badge/Est%C3%A1ndar-ISO%2F29148-success?style=flat-square) ![Notación: UML](https://img.shields.io/badge/Notaci%C3%B3n-UML_%7C_Mermaid-orange?style=flat-square)
+![Status: Piloto](https://img.shields.io/badge/Status-Piloto-blue?style=flat-square) ![Contexto: Académico](https://img.shields.io/badge/Contexto-Acad%C3%A9mico-lightgrey?style=flat-square) ![Estándar: ISO 29148](https://img.shields.io/badge/Est%C3%A1ndar-ISO%2F29148-success?style=flat-square) ![Notación: UML](https://img.shields.io/badge/Notaci%C3%B3n-UML_%7C_PlantUML-orange?style=flat-square)
 
 > [!NOTE]
 > **Propósito de la Sección:** En cumplimiento con **ISO/IEC/IEEE 29148:2018** y la plantilla unificada definida en `use-cases-standard.md` (síntesis ISO 29148 + UML/RUP + Cockburn), esta sección identifica, prioriza y especifica los Casos de Uso de la *Plataforma Digital para la Gestión Integrada y Sostenible del Turismo en Santa Marta*. Cada caso de uso se deriva del registro de 14 stakeholders (`stakeholders.md`) y queda trazado a `Objetivos.md` y `Restricciones.md`.
@@ -66,12 +66,13 @@ Se revisaron plataformas y trabajos académicos comparables del dominio turísti
 
 ---
 
-### Diagramas de Casos de Uso (Mermaid `usecase-beta`)
+### Diagramas de Casos de Uso (PlantUML)
 
 Dado el volumen de casos de uso, se documentan tres diagramas —uno por actor primario— más un grupo transversal de "Usuarios y Seguridad" referenciado por `include` en los tres.
 
 #### Diagrama 1 — Turista
 
+```plantuml
 @startuml
 left to right direction
 
@@ -185,9 +186,11 @@ Notificar --> Notif
 Recomendar --> IA
 
 @enduml
+```
 
 #### Diagrama 2 — Prestador de Servicios Turísticos
 
+```plantuml
 @startuml
 left to right direction
 
@@ -255,9 +258,11 @@ SincronizarLote -|> GestionarOferta
 Onboarding --> Admin
 
 @enduml
+```
 
 #### Diagrama 3 — Administrador de la Plataforma
 
+```plantuml
 @startuml
 left to right direction
 
@@ -328,8 +333,9 @@ Monitorear --> Cloud
 Integraciones --> Pagos2
 
 @enduml
+```
 
-*Nota de compatibilidad:* estos diagramas usan la sintaxis nativa `usecase-beta` de Mermaid (≥ 12.0.0). Si el visor Markdown del equipo no soporta esa versión, la Matriz General y las fichas de la siguiente sección son la fuente de verdad equivalente en formato textual.
+*Nota de compatibilidad:* estos diagramas están modelados en sintaxis estándar de PlantUML (puml). Si el visor Markdown del equipo no cuenta con soporte o extensión de renderizado para PlantUML, la Matriz General y las fichas de la siguiente sección constituyen la fuente de verdad equivalente en formato textual.
 
 ---
 
