@@ -72,154 +72,262 @@ Dado el volumen de casos de uso, se documentan tres diagramas —uno por actor p
 
 #### Diagrama 1 — Turista
 
-```mermaid
-usecase-beta
-    direction LR
+@startuml
+left to right direction
 
-    actor Turista
-    actor IA(("Servicio de IA"))
-    actor Pagos(("Pasarela de Pago"))
-    actor Notif(("Servicio de Notificaciones"))
+' --- ESTILOS VISUALES LÍMPIOS ---
+skinparam shadowing false
+skinparam DefaultFontName Helvetica
+skinparam usecase {
+    BackgroundColor #F8F9FA
+    BorderColor #0D6EFD
+    ArrowColor #6C757D
+}
+skinparam actor {
+    BackgroundColor #E9ECEF
+    BorderColor #0D6EFD
+}
+skinparam rectangle {
+    BorderColor #343A40
+    BackgroundColor Transparent
+}
+skinparam package {
+    BackgroundColor #FFFFFF
+    BorderColor #DEE2E6
+}
 
-    systemBoundary Plataforma["Plataforma Turística Santa Marta — Turista"]
-        Registrar(Registrarse)
-        Autenticar(Autenticarse)
-        Recuperar(Recuperar contraseña)
-        Perfil(Gestionar perfil)
-        Idioma(Configurar idioma y accesibilidad)
-        Habeas(Ejercer derechos de datos)
-        Catalogo(Consultar catálogo)
-        Disponibilidad(Consultar disponibilidad)
-        Favoritos(Guardar en favoritos)
-        Itinerario(Crear itinerario)
-        Reservar[Reservar actividad]
-        ReservarGrupo[Reservar en grupo]
-        ListaEspera(Unirse a lista de espera)
-        Cancelar(Cancelar reserva)
-        Historial(Consultar historial)
-        Pagar(Procesar pago)
-        Disputa(Solicitar reembolso/disputa)
-        Notificar(Notificar evento)
-        Calificar(Calificar experiencia)
-        Recomendar(Recomendar personalizado)
-    end
+' --- ACTORES ---
+actor Turista
+actor "Servicio de IA" as IA
+actor "Pasarela de Pago" as Pagos
+actor "Notificaciones" as Notif
 
-    Turista --> Registrar
-    Turista --> Recuperar
-    Turista --> Perfil
-    Turista --> Idioma
-    Turista --> Habeas
-    Turista --> Catalogo
-    Turista --> Disponibilidad
-    Turista --> Favoritos
-    Turista --> Itinerario
-    Turista --> Reservar
-    Turista --> ReservarGrupo
-    Turista --> ListaEspera
-    Turista --> Cancelar
-    Turista --> Historial
-    Turista --> Disputa
-    Turista --> Calificar
+' --- FRONTERA DEL SISTEMA Y MÓDULOS ---
+rectangle "Plataforma Turística Santa Marta — Turista" {
+    
+    usecase "Autenticarse" as Autenticar
 
-    Registrar ..> Autenticar : include
-    Reservar ..> Autenticar : include
-    ReservarGrupo ..> Reservar : include
-    Cancelar ..> Autenticar : include
-    Reservar ..> Pagar : include
-    Cancelar ..> Pagar : include
-    Disputa ..> Pagar : include
-    Reservar ..> Notificar : include
-    Cancelar ..> Notificar : include
-    ListaEspera ..> Notificar : include
-    Catalogo ..> Recomendar : extend
-    Disponibilidad ..> Recomendar : extend
-    Disponibilidad ..> ListaEspera : extend
+    package "1. Gestión de Cuenta" {
+        usecase "Registrarse" as Registrar
+        usecase "Recuperar contraseña" as Recuperar
+        usecase "Gestionar perfil" as Perfil
+        usecase "Configurar idioma" as Idioma
+        usecase "Ejercer derechos (Habeas Data)" as Habeas
+    }
 
-    Pagar --> Pagos
-    Notificar --> Notif
-    Recomendar --> IA
-```
+    package "2. Exploración y Descubrimiento" {
+        usecase "Consultar catálogo" as Catalogo
+        usecase "Consultar disponibilidad" as Disponibilidad
+        usecase "Guardar en favoritos" as Favoritos
+        usecase "Recomendar personalizado" as Recomendar
+    }
+
+    package "3. Reservas y Pagos" {
+        usecase "Crear itinerario" as Itinerario
+        usecase "Reservar actividad" as Reservar
+        usecase "Reservar en grupo" as ReservarGrupo
+        usecase "Unirse a lista de espera" as ListaEspera
+        usecase "Cancelar reserva" as Cancelar
+        usecase "Procesar pago" as Pagar
+        usecase "Solicitar reembolso/disputa" as Disputa
+    }
+
+    package "4. Seguimiento e Interacción" {
+        usecase "Consultar historial" as Historial
+        usecase "Notificar evento" as Notificar
+        usecase "Calificar experiencia" as Calificar
+    }
+}
+
+' --- RELACIONES DEL ACTOR PRINCIPAL ---
+Turista --> Registrar
+Turista --> Recuperar
+Turista --> Perfil
+Turista --> Idioma
+Turista --> Habeas
+
+Turista --> Catalogo
+Turista --> Disponibilidad
+Turista --> Favoritos
+
+Turista --> Itinerario
+Turista --> Reservar
+Turista --> ReservarGrupo
+Turista --> ListaEspera
+Turista --> Cancelar
+Turista --> Disputa
+
+Turista --> Historial
+Turista --> Calificar
+
+' --- DEPENDENCIAS (INCLUDE) ---
+Registrar ..> Autenticar : <<include>>
+Reservar ..> Autenticar : <<include>>
+Cancelar ..> Autenticar : <<include>>
+ReservarGrupo ..> Reservar : <<include>>
+
+Reservar ..> Pagar : <<include>>
+Cancelar ..> Pagar : <<include>>
+Disputa ..> Pagar : <<include>>
+
+Reservar ..> Notificar : <<include>>
+Cancelar ..> Notificar : <<include>>
+ListaEspera ..> Notificar : <<include>>
+
+' --- EXTENSIONES (EXTEND) ---
+Catalogo ..> Recomendar : <<extend>>
+Disponibilidad ..> Recomendar : <<extend>>
+Disponibilidad ..> ListaEspera : <<extend>>
+
+' --- RELACIONES CON SISTEMAS EXTERNOS ---
+Pagar --> Pagos
+Notificar --> Notif
+Recomendar --> IA
+
+@enduml
 
 #### Diagrama 2 — Prestador de Servicios Turísticos
 
-```mermaid
-usecase-beta
-    direction LR
+@startuml
+left to right direction
 
-    actor Prestador
-    actor Hotel(("Hotel/Operador Establecido"))
-    actor Admin
+' --- ESTILOS VISUALES LÍMPIOS ---
+skinparam shadowing false
+skinparam DefaultFontName Helvetica
+skinparam usecase {
+    BackgroundColor #F8F9FA
+    BorderColor #198754
+    ArrowColor #6C757D
+}
+skinparam actor {
+    BackgroundColor #E9ECEF
+    BorderColor #198754
+}
+skinparam package {
+    BackgroundColor #FFFFFF
+    BorderColor #DEE2E6
+}
 
-    Hotel --|> Prestador
+' --- ACTORES ---
+actor Prestador
+actor "Hotel/Operador Establecido" as Hotel
+actor Admin
 
-    systemBoundary PlataformaPrestador["Plataforma Turística Santa Marta — Prestador"]
-        Autenticar2(Autenticarse)
-        Registrar2(Registrarse)
-        Onboarding(Solicitar verificación)
-        GestionarOferta[Gestionar oferta turística]
-        SincronizarLote[Sincronizar inventario en lote]
-        ConfigurarPoliticas(Configurar políticas y precios)
-        Reportes(Consultar reporte de ventas)
-        Responder(Responder calificaciones)
-    end
+Hotel -|> Prestador
 
-    Prestador --> Registrar2
-    Prestador --> Onboarding
-    Prestador --> GestionarOferta
-    Prestador --> ConfigurarPoliticas
-    Prestador --> Reportes
-    Prestador --> Responder
-    Hotel --> SincronizarLote
+' --- FRONTERA DEL SISTEMA Y MÓDULOS ---
+rectangle "Plataforma Turística Santa Marta — Prestador" {
 
-    Registrar2 ..> Autenticar2 : include
-    Onboarding ..> Autenticar2 : include
-    GestionarOferta ..> Autenticar2 : include
-    SincronizarLote --|> GestionarOferta
-    Onboarding --> Admin
-```
+    usecase "Autenticarse" as Autenticar2
+
+    package "1. Onboarding" {
+        usecase "Registrarse" as Registrar2
+        usecase "Solicitar verificación" as Onboarding
+    }
+
+    package "2. Gestión Operativa" {
+        usecase "Gestionar oferta turística" as GestionarOferta
+        usecase "Sincronizar inventario en lote" as SincronizarLote
+        usecase "Configurar políticas y precios" as ConfigurarPoliticas
+    }
+
+    package "3. Rendimiento y Feedback" {
+        usecase "Consultar reporte de ventas" as Reportes
+        usecase "Responder calificaciones" as Responder
+    }
+}
+
+' --- RELACIONES ---
+Prestador --> Registrar2
+Prestador --> Onboarding
+Prestador --> GestionarOferta
+Prestador --> ConfigurarPoliticas
+Prestador --> Reportes
+Prestador --> Responder
+
+Hotel --> SincronizarLote
+
+Registrar2 ..> Autenticar2 : <<include>>
+Onboarding ..> Autenticar2 : <<include>>
+GestionarOferta ..> Autenticar2 : <<include>>
+
+SincronizarLote -|> GestionarOferta
+Onboarding --> Admin
+
+@enduml
 
 #### Diagrama 3 — Administrador de la Plataforma
 
-```mermaid
-usecase-beta
-    direction LR
+@startuml
+left to right direction
 
-    actor Admin
-    actor Cloud(("Proveedor Cloud"))
-    actor Entidad(("Entidad de Gestión del Destino"))
-    actor Ambiental(("Autoridad Ambiental"))
-    actor Pagos2(("Servicio Externo de Pagos/Reservas"))
+' --- ESTILOS VISUALES LÍMPIOS ---
+skinparam shadowing false
+skinparam DefaultFontName Helvetica
+skinparam usecase {
+    BackgroundColor #F8F9FA
+    BorderColor #DC3545
+    ArrowColor #6C757D
+}
+skinparam actor {
+    BackgroundColor #E9ECEF
+    BorderColor #DC3545
+}
+skinparam package {
+    BackgroundColor #FFFFFF
+    BorderColor #DEE2E6
+}
 
-    systemBoundary PlataformaAdmin["Plataforma Turística Santa Marta — Administrador"]
-        Autenticar3(Autenticarse)
-        GestionarUsuarios[Gestionar usuarios y accesos]
-        AprobarPrestadores[Verificar y aprobar prestadores]
-        Moderar(Moderar contenido)
-        Indicadores[Consultar indicadores]
-        Umbrales(Configurar umbrales de carga)
-        Monitorear(Monitorear salud del sistema)
-        Auditoria(Revisar log de auditoría)
-        Integraciones(Gestionar integraciones API)
-    end
+' --- ACTORES ---
+actor Admin
+actor "Proveedor Cloud" as Cloud
+actor "Entidad de Gestión del Destino" as Entidad
+actor "Autoridad Ambiental" as Ambiental
+actor "Servicio Externo de Pagos" as Pagos2
 
-    Admin --> GestionarUsuarios
-    Admin --> AprobarPrestadores
-    Admin --> Moderar
-    Admin --> Indicadores
-    Admin --> Umbrales
-    Admin --> Monitorear
-    Admin --> Auditoria
-    Admin --> Integraciones
+' --- FRONTERA DEL SISTEMA Y MÓDULOS ---
+rectangle "Plataforma Turística Santa Marta — Administrador" {
 
-    GestionarUsuarios ..> Autenticar3 : include
-    AprobarPrestadores ..> Autenticar3 : include
-    Indicadores ..> Autenticar3 : include
+    usecase "Autenticarse" as Autenticar3
 
-    Indicadores --> Entidad
-    Umbrales --> Ambiental
-    Monitorear --> Cloud
-    Integraciones --> Pagos2
-```
+    package "1. Control de Accesos" {
+        usecase "Gestionar usuarios y accesos" as GestionarUsuarios
+        usecase "Verificar y aprobar prestadores" as AprobarPrestadores
+    }
+
+    package "2. Gobernanza y Moderación" {
+        usecase "Moderar contenido" as Moderar
+        usecase "Consultar indicadores" as Indicadores
+        usecase "Configurar umbrales de carga" as Umbrales
+    }
+
+    package "3. Infraestructura e Integración" {
+        usecase "Monitorear salud del sistema" as Monitorear
+        usecase "Revisar log de auditoría" as Auditoria
+        usecase "Gestionar integraciones API" as Integraciones
+    }
+}
+
+' --- RELACIONES ---
+Admin --> GestionarUsuarios
+Admin --> AprobarPrestadores
+Admin --> Moderar
+Admin --> Indicadores
+Admin --> Umbrales
+Admin --> Monitorear
+Admin --> Auditoria
+Admin --> Integraciones
+
+GestionarUsuarios ..> Autenticar3 : <<include>>
+AprobarPrestadores ..> Autenticar3 : <<include>>
+Indicadores ..> Autenticar3 : <<include>>
+
+Indicadores --> Entidad
+Umbrales --> Ambiental
+Monitorear --> Cloud
+Integraciones --> Pagos2
+
+@enduml
 
 *Nota de compatibilidad:* estos diagramas usan la sintaxis nativa `usecase-beta` de Mermaid (≥ 12.0.0). Si el visor Markdown del equipo no soporta esa versión, la Matriz General y las fichas de la siguiente sección son la fuente de verdad equivalente en formato textual.
 
