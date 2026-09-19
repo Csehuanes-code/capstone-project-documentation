@@ -17,6 +17,7 @@ La plataforma no corresponde a un único género: combina tres categorías del *
 | :--- | :--- |
 | **Gobierno** | El proyecto se asume como una iniciativa implementada por una entidad pública de Santa Marta (p. ej. la Secretaría de Turismo o una entidad mixta de gestión del destino), con el fin de dinamizar el tercer sector de la ciudad y de la región Caribe, agregando una oferta turística hoy dispersa. Este género impone exigencias de transparencia, interoperabilidad con marcos estatales (MinTIC/MAE) y rendición de cuentas que van más allá de una simple plataforma comercial. |
 | **Comerciales y no lucrativos** | El núcleo funcional del sistema —catálogo, disponibilidad, reservas, indicadores de demanda— es el motor operativo típico de una organización que gestiona un servicio, independientemente de que el patrocinador sea público. |
+| **Comunicaciones** | La plataforma requiere el intercambio y gestión de información entre turistas, prestadores turísticos, administradores y diferentes servicios externos, por lo que debe facilitar la transferencia de datos y la interacción entre estos actores y sistemas. |
 | **Inteligencia artificial** | El componente de recomendación/chatbot toma decisiones autónomas condicionadas por contexto (preferencias del turista, capacidad de carga), con el requisito ético explícito de explicabilidad ya definido en `Restricciones.md`. |
 
 > [!NOTE]
@@ -91,7 +92,7 @@ Ponderación 1 (bajo) a 5 (alto). Costo, Riesgo de tiempo y Complejidad se invie
 
 #### 4.1 Diagrama de Contexto Arquitectónico (DCA)
 
-Refleja el estilo elegido: un único punto de entrada (decisión clave #2) y el procesamiento de pagos explícitamente fuera del núcleo evaluado (decisión clave #3).
+Refleja el estilo elegido: un único punto de entrada (decisión clave #2), el procesamiento de pagos explícitamente fuera del núcleo evaluado (decisión clave #3) y la delimitación de fronteras del sistema a alto nivel, excluyendo detalles de infraestructura y servicios externos.
 
 ```plantuml
 @startuml DCA_PlataformaTurismoSantaMarta
@@ -99,63 +100,58 @@ left to right direction
 skinparam packageStyle rectangle
 skinparam componentStyle rectangle
 
-actor "Turista Nacional /\nInternacional" as Turista
-actor "Pequeño/Mediano\nPrestador Turístico" as Prestador
-actor "Administrador de\nla Plataforma" as Admin
-actor "Entidad de Gestión\ndel Destino" as Entidad
+actor "Turista" as Turista
+actor "Proveedor Turístico" as Prestador
+actor "Administrador" as Admin
+actor "Operador Turistico" as Entidad
 
-rectangle "Plataforma Digital de Turismo Santa Marta" {
-  [API Gateway\n(punto único de entrada)] as Gateway
-}
+rectangle "Plataforma Digital de Turismo Santa Marta" as Gateway
 
-component "Proveedor Cloud /\nInfraestructura" as Cloud
+
 component "Fuentes Externas de Datos\n(redes sociales, portales)" as Fuentes
-component "Pasarela de Pagos Certificada" as Pagos
 
-Turista --> Gateway : consulta disponibilidad / reserva
-Prestador --> Gateway : gestiona su catálogo
-Admin --> Gateway : administra y audita
-Entidad --> Gateway : consulta indicadores
+Turista --> Gateway : Consulta disponibilidad / Realiza reserva
+Prestador --> Gateway : Gestiona catálogo de servicios
+Admin --> Gateway : Administra y audita la plataforma
+Entidad --> Gateway : Consulta indicadores turísticos
 
-Gateway ..> Fuentes : integra (solo lectura)
-Gateway ..> Cloud : se despliega sobre
-Gateway ..> Pagos : redirige checkout externo
-
-note right of Pagos
-  Fuera del núcleo evaluado en
-  este laboratorio (decisión clave #3).
-  Cumplimiento PCI-DSS delegado
-  al proveedor certificado.
-end note
+Gateway ..> Fuentes : Consulta e integra información (solo lectura)
 @enduml
 ```
 
 #### 4.2 Diagrama de Arquetipos
 
-Coherente con los géneros elegidos: el arquetipo de **Interfaz de Sistema Externo** aísla explícitamente lo que queda fuera del alcance del prototipo (pagos, fuentes externas), y el **Gestor de Servicio** aísla el componente de IA para sostener su requisito de explicabilidad (género Gobierno + IA).
+Representa las **entidades principales** del dominio de negocio a alto nivel **y sus relaciones fundamentales**, abstrayendo detalles técnicos, atributos e interfaces según las indicaciones arquitectónicas recibidas.
 
 ```plantuml
 @startuml Arquetipos_PlataformaTurismo
-skinparam componentStyle rectangle
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
 
-package "Arquetipos de Diseño" {
-  [Frontera / Interfaz\n(API Gateway, Web, App móvil)] as Frontera <<Boundary>>
-  [Controlador\n(Orquestador de saga - Reservas)] as Control <<Control>>
-  [Entidad de Negocio\n(Catálogo, Reserva, Usuario)] as Entidad <<Entity>>
-  [Gestor de Servicio\n(Microservicio IA, Notificaciones)] as Gestor <<Manager>>
-  [Interfaz de Sistema Externo\n(Pasarela de pagos, fuentes externas)] as Externo <<System Interface>>
+package "Arquetipos del Dominio de Negocio" {
+  class Turista
+  class PrestadorTuristico
+  class ServicioTuristico
+  class Reserva
+  class Usuario
+  class Administrador
+  class RecomendacionIA
 }
 
-Frontera --> Control : delega solicitud
-Control --> Entidad : consulta / actualiza
-Control --> Gestor : invoca servicio especializado
-Gestor --> Externo : integra con sistema externo
+Turista "1" -- "0..*" Reserva : realiza >
+PrestadorTuristico "1" -- "1..*" ServicioTuristico : ofrece >
+ServicioTuristico "1" -- "0..*" Reserva : forma parte de >
+Usuario <|-- Turista
+Usuario <|-- PrestadorTuristico
+Usuario <|-- Administrador
+RecomendacionIA "0..*" -- "1" Turista : genera sugerencias para >
+RecomendacionIA "0..*" -- "1..*" ServicioTuristico : evalúa >
 @enduml
 ```
 
 #### 4.3 Diagrama de Componentes
 
-Señala exactamente dónde vive cada táctica de calidad (sección 3).
+Señala la arquitectura de componentes a alto nivel en su primera iteración, mostrando únicamente los servicios del sistema y su orquestación a través del punto de entrada.
 
 ```plantuml
 @startuml Componentes_PlataformaTurismo
@@ -163,61 +159,22 @@ skinparam componentStyle rectangle
 
 component "API Gateway" as GW
 
-package "Microservicio: Catálogo" {
-  [Interfaz REST] as CatalogoAPI
-  database "MongoDB" as CatalogoDB
+package "Servicios Principales" {
+  [Servicio de Autenticación y Autorización (Auth)] as AuthService
+  [Servicio de Catálogo] as CatalogoService
+  [Servicio de Reservas] as ReservasService
+  [Servicio de IA (Recomendación)] as IAService
+  [Servicio de Analítica y Reportes] as AnaliticaService
 }
 
-package "Microservicio: Disponibilidad y Reservas" {
-  [Orquestador de Saga] as ReservasSaga
-  [Réplica activa\n(2da zona de disponibilidad)] as ReservasReplica
-  database "PostgreSQL" as ReservasDB
-}
+GW --> AuthService : Autentica y autoriza usuarios
+GW --> CatalogoService : Gestiona oferta turística
+GW --> ReservasService : Procesa y orquesta reservas
+GW --> IAService : Consulta recomendaciones personalizadas
 
-package "Microservicio: Usuarios y Seguridad" {
-  [Auth / RBAC] as AuthAPI
-  database "PostgreSQL" as UsuariosDB
-}
-
-package "Microservicio: IA (Recomendación)" {
-  [Motor de Recomendación] as IAEngine
-  [Caché de resultados frecuentes] as IACache
-}
-
-package "Microservicio: Notificaciones" {
-  [Cola de mensajes] as NotifQueue
-}
-
-package "Microservicio: Analítica / Reportes" {
-  [Vistas agregadas] as AnaliticaViews
-}
-
-component "Pasarela de Pagos Externa\n(fuera del núcleo)" as Pagos
-
-GW --> CatalogoAPI
-GW --> ReservasSaga
-GW --> AuthAPI
-GW --> IAEngine
-
-ReservasSaga --> AuthAPI : valida identidad
-ReservasSaga --> NotifQueue : emite evento
-ReservasSaga ..> Pagos : redirige checkout
-ReservasSaga --> ReservasReplica : táctica: heartbeat + failover
-
-IAEngine --> IACache : táctica: caché de resultados
-
-AnaliticaViews <.. NotifQueue : eventos
-AnaliticaViews <.. ReservasSaga : eventos
-
-note right of ReservasReplica
-  Táctica de Disponibilidad
-  (ver sección 3)
-end note
-
-note right of IACache
-  Táctica de Desempeño
-  (ver sección 3)
-end note
+ReservasService --> AuthService : Valida credenciales y permisos
+AnaliticaService ..> ReservasService : Consume eventos de actividad
+AnaliticaService ..> CatalogoService : Consume información de servicios
 @enduml
 ```
 
