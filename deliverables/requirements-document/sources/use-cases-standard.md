@@ -1,4 +1,4 @@
-# Investigación: Especificación de Casos de Uso bajo ISO/IEC/IEEE 29148:2018 y Diagramación con Mermaid
+# Investigación: Especificación de Casos de Uso bajo ISO/IEC/IEEE 29148:2018 y Diagramación con PlantUML
 
 **Proyecto:** Plataforma Digital para la Gestión Integrada y Sostenible del Turismo en Santa Marta
 **Documento de referencia cruzada:** `Fundamentacion-de-Decisiones.md`, `Objetivos.md`, `Restricciones.md`, `Descripcion-General.md`, `Diseño-de-Ingenieria.md`
@@ -10,7 +10,7 @@
 Este documento consolida la investigación necesaria para definir los **Casos de Uso** del proyecto, en coherencia con el rigor metodológico exigido en `Fundamentacion-de-Decisiones.md` (trazabilidad ADR, estándar ISO/IEC/IEEE 29148:2018, ausencia de decisiones empíricas). Cubre dos frentes:
 
 1. **Fundamentación normativa** — qué exige ISO/IEC/IEEE 29148:2018 (y los marcos UML/RUP que lo complementan) respecto a la identificación, especificación, desarrollo y descripción de casos de uso.
-2. **Herramienta de representación** — cómo modelar esos casos de uso como diagramas mediante Mermaid (`usecase-beta`), incluyendo su sintaxis oficial vigente.
+2. **Herramienta de representación** — cómo modelar esos casos de uso como diagramas mediante PlantUML (`.puml`), incluyendo su sintaxis oficial y estándar UML.
 
 El resultado es una **plantilla unificada** y una **guía de elección/priorización**, listas para aplicarse al documento de Casos de Uso del proyecto.
 
@@ -114,66 +114,67 @@ Con base en `Descripcion-General.md`, `Objetivos.md` y `Restricciones.md`, los c
 
 ---
 
-## 5. Investigación: Diagramas de Casos de Uso con Mermaid
+## 5. Modelado y Diagramación de Casos de Uso con PlantUML
 
-### 5.1 Estado del soporte oficial
+### 5.1 Adopción de PlantUML (puml)
 
-Mermaid incorporó un tipo de diagrama nativo de **Use Case Diagram** a partir de la versión **12.0.0**, bajo la palabra clave `usecase-beta` (aún en beta). Antes de esa versión, el tipo no existía de forma nativa (existía una solicitud abierta en el repositorio oficial desde 2023), por lo que cualquier proyecto que use una versión anterior de Mermaid deberá actualizar la librería o simular el diagrama con `flowchart`.
+PlantUML constituye el estándar adoptado en el proyecto para el modelado visual de casos de uso. A diferencia de librerías con soporte de versiones inconsistente o en fase experimental en visores Markdown estándar, PlantUML ofrece una implementación madura y exhaustiva del estándar UML (soportando paquetes, alias, jerarquías de generalización, estereotipos formales y personalización de estilos mediante `skinparam`), garantizando estabilidad, renderizado determinístico y amplia integración con herramientas de desarrollo y documentación.
 
 ### 5.2 Sintaxis base
 
-```mermaid
-usecase-beta
-    direction LR
+```plantuml
+@startuml
+left to right direction
 
-    actor Turista
-    actor Operador
-    actor Admin
-    actor IA(("Servicio de IA"))
+' --- ESTILOS VISUALES LÍMPIOS ---
+skinparam shadowing false
+skinparam DefaultFontName Helvetica
 
-    systemBoundary Plataforma["Plataforma Turística Santa Marta"]
-        ConsultarDisponibilidad(Consultar disponibilidad)
-        Reservar[Reservar actividad]
-        Autenticar(Autenticarse)
-        Recomendar(Generar recomendación)
-        GestionarOferta[Gestionar oferta turística]
-    end
+actor Turista
+actor "Prestador Turístico" as Operador
+actor Admin
+actor "Servicio de IA" as IA
 
-    Turista --> ConsultarDisponibilidad
-    Turista --> Reservar
-    Operador --> GestionarOferta
-    Admin --> GestionarOferta
+rectangle "Plataforma Turística Santa Marta" {
+    usecase "Autenticarse" as Autenticar
+    usecase "Consultar disponibilidad" as ConsultarDisponibilidad
+    usecase "Reservar actividad" as Reservar
+    usecase "Generar recomendación" as Recomendar
+    usecase "Gestionar oferta turística" as GestionarOferta
+}
 
-    Reservar ..> Autenticar : include
-    ConsultarDisponibilidad ..> Recomendar : extend
-    Recomendar --> IA
+Turista --> ConsultarDisponibilidad
+Turista --> Reservar
+Operador --> GestionarOferta
+Admin --> GestionarOferta
+
+Reservar ..> Autenticar : <<include>>
+ConsultarDisponibilidad ..> Recomendar : <<extend>>
+Recomendar --> IA
+@enduml
 ```
 
-### 5.3 Reglas de sintaxis clave (documentación oficial mermaid.js.org)
+### 5.3 Reglas de sintaxis y buenas prácticas en PlantUML
 
-- **Palabra clave de inicio:** `usecase-beta`. Cada sentencia debe ir en su propia línea física.
-- **Dirección del layout:** `direction` con `TD`, `TB`, `BT`, `LR` o `RL`.
-- **Identificadores:** actores, casos de uso, boundaries y nodos comparten un espacio de nombres único, con patrón `[A-Za-z0-9_]+` (pueden iniciar con dígito).
-- **Forma de los casos de uso:** paréntesis `( )` para elipse (forma clásica UML), corchetes `[ ]` para rectángulo. Un endpoint de relación sin declaración explícita se interpreta automáticamente como caso de uso elíptico; en cambio, **los actores siempre requieren una declaración explícita** `actor ID`, nunca se infieren por posición.
-- **Etiquetas con identificador propio:** `Login("Sign in")` asigna el identificador estable `Login` con etiqueta visible "Sign in". Una declaración entre comillas sin identificador (p. ej. `"Reset password"`) genera un identificador determinístico reemplazando caracteres no alfanuméricos por `_`.
-- **Variantes de actor:** además del actor "palito" estándar, se admite `type: hollow`, `type: awesome` o `icon: <nombre>` (requiere registrar el paquete de íconos).
-- **Elementos de negocio y estereotipos:** `business: true` agrega la barra diagonal convencional UML a actores u óvalos de caso de uso; un estereotipo `<<...>>` puede colocarse antes de una clase `:::`.
-- **Fronteras del sistema (`systemBoundary`):** agrupan actores y casos de uso bajo un límite visual con título opcional; son de un solo nivel (no anidables) y solo pueden contener actores/casos de uso.
-- **Relaciones — asociaciones simples:** siete operadores de asociación sólida disponibles (flechas con distintos marcadores); pueden llevar etiqueta, y una etiqueta que contenga literalmente la palabra "include" o "extend" **no** activa semántica UML — sigue siendo una asociación ordinaria.
-- **Relaciones UML explícitas:** para semántica formal deben usarse operadores dedicados: **include** y **extend** requieren que ambos extremos sean casos de uso; **generalización** requiere que ambos extremos sean del mismo tipo (dos actores o dos casos de uso), apuntando del elemento especializado al general.
-- **Notas:** se adjuntan a un único actor o caso de uso mediante una línea punteada; no pueden apuntar a boundaries, tablas JSON u otras notas.
-- **Tablas JSON embebidas:** permiten anexar metadatos tabulares (p. ej. atributos de un caso de uso) directamente en el diagrama.
-- **Estilos:** `classDef`, `class`, `style` y el sufijo `:::` permiten personalizar colores; existen variables de tema específicas (`usecaseActorBkg`, `usecaseBkg`, `usecaseIncludeLine`, `usecaseExtendLine`, entre otras).
-- **Tema y layout por defecto:** desde 12.0.0 el diagrama usa el tema `redux-color`, el estilo `neo` y el motor de layout **ELK** (no Dagre) por defecto; ambos son configurables.
-- **Migración desde PlantUML:** Mermaid no soporta separadores con título, alias `as`, bloques `skinparam`, `<style>`, `allowmixing`, hints de dirección (`left`/`right`/`up`/`down`), ni notas independientes o multi-destino — estos elementos generan error de parseo y deben reescribirse con la sintaxis nativa descrita arriba.
+- **Delimitadores de bloque:** Apertura mediante `@startuml` (con identificador opcional) y cierre mediante `@enduml`. En documentos Markdown se encapsulan en bloques de código delimitados por ````plantuml`.
+- **Dirección del layout:** Configuración `left to right direction` para disponer horizontalmente actores y frontera del sistema, optimizando la legibilidad en pantallas y documentos paginados.
+- **Declaración explícita de actores:** Definición mediante `actor Nombre` o etiquetas extendidas con alias: `actor "Nombre Extendido" as Alias`.
+- **Frontera del sistema y modularización:** Uso de `rectangle "Sistema" { ... }` para delimitar el alcance de la plataforma y `package "Módulo" { ... }` para estructurar funcionalmente los casos de uso internos.
+- **Declaración de casos de uso:** Definición mediante `usecase "Descripción de la acción" as Alias`.
+- **Relaciones formales UML:**
+  - *Asociación simple:* `Actor --> CasoUso`
+  - *Inclusión:* `CasoBase ..> CasoIncluido : <<include>>`
+  - *Extensión:* `CasoBase ..> CasoExtendido : <<extend>>`
+  - *Generalización / Especialización:* `SubActor -|> SuperActor` o `SubCaso -|> SuperCaso`
+- **Estilos y consistencia visual (`skinparam`):** Se aplica `skinparam shadowing false` junto con paletas cromáticas diferenciadas por actor/rol para asegurar claridad visual y consistencia con los demás diagramas arquitectónicos del proyecto (DCA, arquetipos, componentes).
 
 ### 5.4 Recomendación de aplicación al proyecto
 
-Para el documento de Casos de Uso se recomienda:
+Para el documento de Casos de Uso del proyecto se recomienda:
 
-1. Un **diagrama general** (`usecase-beta`, `direction LR`) con todos los actores y los casos de uso núcleo agrupados en un `systemBoundary` único ("Plataforma Turística Santa Marta"), mostrando las relaciones `include`/`extend` principales (autenticación incluida, recomendación de IA como extensión).
-2. **Diagramas específicos por subsistema** (opcional) si el número de casos de uso crece — p. ej. un boundary para "Gestión de Reservas" y otro para "Módulo de IA" — evitando saturar un único diagrama.
-3. Verificar la versión de Mermaid usada por el visor/editor del equipo (Markdown renderer, VS Code, GitHub, etc.), dado que `usecase-beta` requiere **Mermaid ≥ 12.0.0**; de no estar disponible, usar el diagrama como especificación textual (Sección 4) mientras se actualiza la herramienta.
+1. **Diagramas modulares por actor primario:** Dado el volumen de casos de uso (34 casos de uso especificados), se definen tres diagramas dedicados (Turista, Prestador de Servicios Turísticos, Administrador) que aíslan sus subsistemas y evitan diagramas saturados.
+2. **Reutilización y factores comunes:** Modelar `Autenticarse` como caso de uso transversal referenciado mediante relaciones `<<include>>` desde los flujos que exigen sesión activa.
+3. **Compatibilidad y versionamiento:** El código fuente PlantUML se versiona directamente embebido en el archivo Markdown de requisitos (`use-cases.md`), permitiendo auditoría y control de cambios en Git sin depender de artefactos binarios externos.
 
 ---
 
@@ -184,6 +185,6 @@ Para el documento de Casos de Uso se recomienda:
 | ISO/IEC/IEEE 29148:2018 | Ubicación formal de los casos de uso en el proceso de requisitos (OpsCon/StRS), criterios de calidad de cada especificación. |
 | UML (include/extend/generalización) | Semántica de reutilización y variación entre casos de uso. |
 | Plantilla RUP/Cockburn | Estructura textual completa (flujo básico, alternos, excepciones). |
-| Mermaid `usecase-beta` (≥12.0.0) | Representación gráfica normalizada y versionable en el mismo repositorio de documentación Markdown del proyecto. |
+| PlantUML (`.puml`) | Representación gráfica normalizada, modular y versionable en el repositorio de documentación del proyecto bajo notación estándar UML. |
 
 Este documento queda listo para servir de base al desarrollo del **Documento de Casos de Uso** exigido en `Diseño-de-Ingenieria.md` ("Documento de Requerimientos" → "Diagramas de casos de USO" y "Especificación de requerimientos (ISO/IEC/IEEE 29148:2018)").
