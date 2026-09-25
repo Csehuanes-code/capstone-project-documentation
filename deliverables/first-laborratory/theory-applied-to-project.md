@@ -11,7 +11,7 @@
 
 #### 1.1 Géneros arquitectónicos identificados (taxonomía de Booch)
 
-La plataforma no corresponde a un único género: combina tres categorías del *Handbook of Software Architecture* de Booch, cada una con exigencias arquitectónicas propias.
+La plataforma no corresponde a un único género: combina cuatro categorías del *Handbook of Software Architecture* de Booch, cada una con exigencias arquitectónicas propias.
 
 | Género (Booch) | Justificación en el contexto de Santa Marta |
 | :--- | :--- |
@@ -21,7 +21,7 @@ La plataforma no corresponde a un único género: combina tres categorías del *
 | **Inteligencia artificial** | El componente de recomendación/chatbot toma decisiones autónomas condicionadas por contexto (preferencias del turista, capacidad de carga), con el requisito ético explícito de explicabilidad ya definido en `Restricciones.md`. |
 
 > [!NOTE]
-> El género **Financieros**, considerado en el análisis general del proyecto (`architectural-proposals.md`), se atenúa deliberadamente en este laboratorio: el enunciado del Laboratorio 1 excluye el procesamiento de pagos del alcance evaluado aquí. Cualquier necesidad transaccional se redirige a los módulos de Reservas y Notificaciones (ver decisión clave #3).
+> El procesamiento de pagos queda completamente excluido del alcance evaluado para el núcleo de este prototipo, por lo cual no se considera el género Financieros ni interacciones externas con pasarelas. Adicionalmente, el envío de notificaciones es absorbido de forma implícita por el módulo de Reservas, operando como una función interna y sin exponerse como un microservicio independiente.
 
 #### 1.2 Decisiones arquitectónicas clave difíciles de cambiar
 
@@ -29,7 +29,7 @@ La plataforma no corresponde a un único género: combina tres categorías del *
 | :--- | :--- | :--- |
 | 1 | **Adoptar microservicios como estilo base y descartar por completo el monolito**, con un microservicio propio por cada uno de los cinco integrantes del equipo. | Una vez que cada integrante desarrolla y es evaluado individualmente sobre su propio servicio, revertir a un monolito exigiría fusionar bases de código independientes y renegociar la asignación de roles de evaluación a mitad de proyecto. |
 | 2 | **Punto único de entrada obligatorio vía API Gateway.** El turista, el operador y el administrador nunca se conectan directamente a un microservicio. | Cambiarlo después implicaría exponer públicamente cada servicio, rediseñar la autenticación distribuida (hoy centralizada en el Gateway) y renegociar contratos de red con cada consumidor externo ya integrado. |
-| 3 | **Excluir el procesamiento de pagos propio del núcleo del prototipo**, delegándolo íntegramente a una pasarela certificada externa (Wompi/ePayco) y redirigiendo cualquier lógica asociada hacia Reservas y Notificaciones. | Revertirlo significaría asumir cumplimiento PCI-DSS propio dentro del prototipo académico, un cambio de alcance normativo y de responsabilidad que no es viable en el tiempo y presupuesto definidos en `Restricciones.md`. |
+| 3 | **Implementar Arquitectura Limpia (Clean Architecture) como patrón de diseño interno en cada microservicio.** | Definir desde el inicio la separación estricta en capas (Dominio, Aplicación, Infraestructura) establece la estructura base de los proyectos (ej. en el entorno de Spring Boot o React). Revertir esta decisión para usar un modelo tradicional altamente acoplado obligaría a reescribir toda la lógica de negocio, reglas de validación y la estructura de directorios de todos los servicios. |
 
 ---
 
@@ -96,26 +96,24 @@ Refleja el estilo elegido: un único punto de entrada (decisión clave #2), el p
 
 ```plantuml
 @startuml DCA_PlataformaTurismoSantaMarta
-left to right direction
 skinparam packageStyle rectangle
 skinparam componentStyle rectangle
 
 actor "Turista" as Turista
-actor "Proveedor Turístico" as Prestador
+actor "Proveedor/Operador\nTurístico" as Proveedor
 actor "Administrador" as Admin
-actor "Operador Turistico" as Entidad
+actor "Entidad de Gobierno" as Entidad
 
 rectangle "Plataforma Digital de Turismo Santa Marta" as Gateway
-
 
 component "Fuentes Externas de Datos\n(redes sociales, portales)" as Fuentes
 
 Turista --> Gateway : Consulta disponibilidad / Realiza reserva
-Prestador --> Gateway : Gestiona catálogo de servicios
+Proveedor --> Gateway : Gestiona catálogo de servicios
 Admin --> Gateway : Administra y audita la plataforma
 Entidad --> Gateway : Consulta indicadores turísticos
 
-Gateway ..> Fuentes : Consulta e integra información (solo lectura)
+Gateway -down.> Fuentes : Consulta e integra información (solo lectura)
 @enduml
 ```
 
@@ -130,7 +128,7 @@ skinparam packageStyle rectangle
 
 package "Arquetipos del Dominio de Negocio" {
   class Turista
-  class PrestadorTuristico
+  class ProveedorOperadorTuristico
   class ServicioTuristico
   class Reserva
   class Usuario
@@ -139,10 +137,10 @@ package "Arquetipos del Dominio de Negocio" {
 }
 
 Turista "1" -- "0..*" Reserva : realiza >
-PrestadorTuristico "1" -- "1..*" ServicioTuristico : ofrece >
+ProveedorOperadorTuristico "1" -- "1..*" ServicioTuristico : ofrece >
 ServicioTuristico "1" -- "0..*" Reserva : forma parte de >
 Usuario <|-- Turista
-Usuario <|-- PrestadorTuristico
+Usuario <|-- ProveedorOperadorTuristico
 Usuario <|-- Administrador
 RecomendacionIA "0..*" -- "1" Turista : genera sugerencias para >
 RecomendacionIA "0..*" -- "1..*" ServicioTuristico : evalúa >
