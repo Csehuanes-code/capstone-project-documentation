@@ -10,8 +10,8 @@ export default defineConfig({
       registerType: "autoUpdate",
       includeAssets: ["icono.svg"],
       manifest: {
-        name: "Turismo Santa Marta",
-        short_name: "Santa Marta",
+        name: "SierraMar · Turismo sostenible en Santa Marta",
+        short_name: "SierraMar",
         description: "Reserva experiencias de turismo sostenible en Santa Marta",
         lang: "es",
         theme_color: "#0b6e6e",
@@ -22,7 +22,8 @@ export default defineConfig({
       },
       workbox: {
         // La API nunca se cachea: reservas y cupos deben ser siempre los reales.
-        navigateFallbackDenylist: [/^\/api\//, /^\/\.well-known\//],
+        // /correo es el buzón de la demo (Mailpit) detrás del gateway: no lo atiende la PWA.
+        navigateFallbackDenylist: [/^\/api\//, /^\/\.well-known\//, /^\/correo/],
         runtimeCaching: [{ urlPattern: /^\/api\//, handler: "NetworkOnly" }],
       },
     }),
