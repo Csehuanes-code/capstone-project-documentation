@@ -1,0 +1,35 @@
+flowchart LR
+    subgraph Clientes
+        T["Turista<br/>(celular o PC)"]
+        P["Prestador"]
+        A["Administrador"]
+    end
+    PWA["PWA SierraMar<br/>React + service worker"]
+    GW["API Gateway<br/>Traefik · HTTPS"]
+    subgraph Servicios["Microservicios (FastAPI · Clean Architecture)"]
+        AU["Auth"]
+        CA["Catálogo"]
+        RE["Reservas"]
+        IA["IA · Recomendación"]
+        AN["Analítica"]
+    end
+    MQ{{"RabbitMQ<br/>exchange topic 'turismo'"}}
+    subgraph Datos["PostgreSQL 16"]
+        D1[("auth_db")]
+        D2[("catalogo_db")]
+        D3[("reservas_db")]
+        D4[("ia_db")]
+        D5[("analitica_db")]
+    end
+    MAIL["Servidor SMTP<br/>(Mailpit en la demo)"]
+    T & P & A --> PWA --> GW
+    GW --> AU & CA & RE & IA & AN
+    AU --- D1
+    CA --- D2
+    RE --- D3
+    IA --- D4
+    AN --- D5
+    AU & CA & RE & AN ==> MQ
+    MQ -.-> CA & RE & IA & AN
+    RE -- "REST: timeout 1 s y circuit breaker" --> CA
+    RE --> MAIL

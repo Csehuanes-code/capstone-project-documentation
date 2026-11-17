@@ -1,0 +1,63 @@
+erDiagram
+    ZONA ||--o{ OFERTA : ubica
+    TIPO_SERVICIO ||--o{ OFERTA : clasifica
+    OFERTA ||--|{ TARIFA : tiene
+    OFERTA ||--o| POLITICA_CANCELACION : aplica
+    OFERTA ||--o{ IMAGEN_OFERTA : muestra
+    OFERTA ||--o{ CALIFICACION : recibe
+    PERFIL_PRESTADOR ||--o{ OFERTA : publica
+    ZONA {
+        uuid id PK
+        varchar codigo UK
+        varchar nombre_es
+        varchar nombre_en
+        boolean ecosistema_sensible
+    }
+    TIPO_SERVICIO {
+        uuid id PK
+        varchar codigo UK
+        jsonb esquema_atributos
+    }
+    OFERTA {
+        uuid id PK
+        uuid prestador_id
+        uuid zona_id FK
+        uuid tipo_servicio_id FK
+        varchar nombre_es
+        varchar nombre_en
+        jsonb atributos "categorias, duracion, etc."
+        varchar estado
+        numeric calificacion_promedio
+    }
+    TARIFA {
+        uuid id PK
+        uuid oferta_id FK
+        varchar temporada
+        date vigente_desde
+        date vigente_hasta
+        numeric precio_por_persona
+    }
+    POLITICA_CANCELACION {
+        uuid oferta_id PK
+        smallint horas_reembolso_total
+        smallint horas_reembolso_parcial
+        smallint porcentaje_reembolso_parcial
+    }
+    CALIFICACION {
+        uuid id PK
+        uuid oferta_id FK
+        uuid reserva_id
+        smallint puntaje
+        varchar estado_moderacion
+    }
+    PERFIL_PRESTADOR {
+        uuid prestador_id PK
+        varchar numero_rnt
+        boolean verificado
+    }
+    IMAGEN_OFERTA {
+        uuid id PK
+        uuid oferta_id FK
+        text clave_objeto
+        smallint orden
+    }

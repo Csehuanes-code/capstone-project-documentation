@@ -1,0 +1,14 @@
+flowchart TB
+    subgraph servicio["Microservicio (ej. reservas)"]
+        M["main<br/>arranque, workers del outbox y consumidores"]
+        API["api<br/>rutas FastAPI, esquemas, dependencias de seguridad"]
+        INF["infraestructura<br/>repositorios SQL, publicador RabbitMQ,<br/>cliente HTTP con circuit breaker, SMTP"]
+        APL["aplicacion<br/>casos de uso y puertos (interfaces)"]
+        DOM["dominio<br/>entidades, reglas, errores de negocio"]
+    end
+    M --> API
+    M --> INF
+    API --> APL
+    INF --> APL
+    INF -. "implementa puertos de" .-> APL
+    APL --> DOM

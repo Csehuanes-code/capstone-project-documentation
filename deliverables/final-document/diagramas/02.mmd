@@ -1,0 +1,54 @@
+classDiagram
+    direction LR
+    class Usuario
+    class Turista
+    class Prestador
+    class Administrador
+    class Consentimiento
+    class SolicitudVerificacion
+    class Zona
+    class TipoServicio
+    class Oferta
+    class Tarifa
+    class PoliticaCancelacion
+    class Calificacion
+    class FranjaDisponibilidad
+    class Reserva
+    class Pago
+    class EntradaListaEspera
+    class Disputa
+    class Notificacion
+    class Recomendacion
+    class ItemRecomendado
+    class UmbralZona
+    class AlertaCapacidad
+
+    Usuario <|-- Turista
+    Usuario <|-- Prestador
+    Usuario <|-- Administrador
+    Usuario "1" --> "1..*" Consentimiento : acepta
+    Prestador "1" --> "0..*" SolicitudVerificacion : solicita
+    Administrador "1" --> "0..*" SolicitudVerificacion : resuelve
+
+    Prestador "1" --> "0..*" Oferta : publica
+    Oferta "*" --> "1" Zona : se ubica en
+    Oferta "*" --> "1" TipoServicio : es de tipo
+    Oferta "1" *-- "1..*" Tarifa : tiene
+    Oferta "1" *-- "0..1" PoliticaCancelacion : aplica
+    Turista "1" --> "0..*" Calificacion : escribe
+    Calificacion "*" --> "1" Oferta : evalúa
+
+    Oferta "1" --> "0..*" FranjaDisponibilidad : ofrece cupos en
+    Turista "1" --> "0..*" Reserva : hace
+    Reserva "*" --> "1" FranjaDisponibilidad : ocupa
+    Reserva "1" *-- "1..*" Pago : cobros y reembolsos
+    Reserva "1" --> "0..*" Notificacion : genera
+    Reserva "1" --> "0..*" Disputa : puede originar
+    Turista "1" --> "0..*" EntradaListaEspera : espera
+    EntradaListaEspera "*" --> "1" FranjaDisponibilidad : por
+
+    Turista "1" --> "0..*" Recomendacion : recibe
+    Recomendacion "1" *-- "1..*" ItemRecomendado : contiene
+    ItemRecomendado "*" --> "1" Oferta : sugiere
+    Zona "1" --> "0..1" UmbralZona : capacidad de carga
+    Zona "1" --> "0..*" AlertaCapacidad : genera

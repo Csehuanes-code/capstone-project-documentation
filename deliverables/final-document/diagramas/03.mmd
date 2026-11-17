@@ -1,0 +1,46 @@
+erDiagram
+    USUARIO ||--o{ CONSENTIMIENTO : registra
+    USUARIO ||--o{ TOKEN_SESION : abre
+    USUARIO ||--o| CONFIRMACION_CORREO : confirma
+    USUARIO ||--o{ SOLICITUD_VERIFICACION : "solicita (prestador)"
+    USUARIO ||--o{ REGISTRO_AUDITORIA : deja
+    USUARIO {
+        uuid id PK
+        varchar email UK
+        varchar role "turista, prestador, administrador"
+        text password_hash "Argon2id"
+        varchar status
+    }
+    CONSENTIMIENTO {
+        uuid id PK
+        uuid user_id FK
+        varchar purpose
+        varchar policy_version
+        timestamptz accepted_at
+    }
+    SOLICITUD_VERIFICACION {
+        uuid id PK
+        uuid provider_id FK
+        varchar business_name
+        varchar nit
+        varchar rnt
+        varchar status
+        text justification
+    }
+    TOKEN_SESION {
+        uuid id PK
+        uuid user_id FK
+        varchar token_hash
+        timestamptz expires_at
+    }
+    CONFIRMACION_CORREO {
+        varchar token_hash PK
+        uuid user_id FK
+        timestamptz expires_at
+    }
+    REGISTRO_AUDITORIA {
+        uuid id PK
+        uuid user_id FK
+        varchar event_type
+        boolean succeeded
+    }

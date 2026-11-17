@@ -1,0 +1,12 @@
+flowchart TD
+    I["Inicio<br/>portada · destinos · IA · catálogo"] --> D["Detalle de experiencia<br/>galería · disponibilidad · pago"]
+    I --> E["Iniciar sesión"]
+    I --> R["Crear cuenta"]
+    R --> C["Confirmar correo<br/>(enlace del correo)"] --> E
+    E -->|turista| I
+    D -->|pago aprobado| CO["Comprobante<br/>código SMT · cancelar · calificar · disputa"]
+    D -->|sin cupo| LE["Lista de espera"]
+    I --> MR["Mis reservas<br/>(turista)"] --> CO
+    E -->|prestador| PR["Panel del prestador<br/>ofertas · franjas · reservas recibidas · verificación"]
+    E -->|administrador| AD["Administración<br/>verificaciones · indicadores · capacidad de carga · disputas"]
+    I --> CR["Créditos fotográficos"]

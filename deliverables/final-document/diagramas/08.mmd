@@ -1,0 +1,36 @@
+flowchart LR
+    subgraph frontend["frontend · PWA"]
+        direction TB
+        F1["pages"] --> F2["api · sesion · idioma"]
+        F1 --> F3["ui · fotos · ilustraciones"]
+    end
+    subgraph despliegue["despliegue"]
+        direction TB
+        G1["gateway: rutas Traefik"]
+        G2["postgres: bases y usuarios"]
+        G3["nube: HTTPS y buzón"]
+    end
+    subgraph microservicios["microservices"]
+        direction TB
+        S1["auth-service"]
+        S2["catalog-service"]
+        S3["reservas-service"]
+        S4["ia-service"]
+        S5["analitica-service"]
+    end
+    subgraph comun["comun"]
+        direction TB
+        C1["seguridad: JWT ES256"]
+        C2["eventos: outbox y consumidor idempotente"]
+        C3["correlacion · logging_json · salud"]
+    end
+    subgraph contratos["contratos"]
+        direction TB
+        K1["OpenAPI por servicio"]
+        K2["eventos: JSON Schema"]
+    end
+    F2 -. "HTTP vía gateway" .-> microservicios
+    despliegue -. "enruta y aloja" .-> microservicios
+    microservicios --> comun
+    microservicios -. "implementan" .-> contratos
+    C2 -. "valida sobres con" .-> K2
