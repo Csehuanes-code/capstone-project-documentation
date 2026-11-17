@@ -18,7 +18,7 @@ const textos = {
     cargando: "Cargando…", vacio: "Todavía no hay nada aquí.", total: "Total", estado: "Estado",
     fecha: "Fecha", zona: "Zona", guardar: "Guardar", clave: "Contraseña", rol: "Tipo de cuenta",
     turista: "Turista", prestador: "Prestador de servicios", consentimiento: "Acepto la política de tratamiento de datos (Ley 1581)",
-    revisaCorreo: "Te enviamos un correo para confirmar la cuenta. Ábrelo en Mailpit (localhost:8025).",
+    revisaCorreo: "Te enviamos un correo para confirmar la cuenta. Ábrelo en el buzón de la demo (Mailpit).",
     cuentaConfirmada: "Cuenta confirmada. Ya puedes iniciar sesión.",
   },
   en: {
@@ -37,7 +37,7 @@ const textos = {
     cargando: "Loading…", vacio: "Nothing here yet.", total: "Total", estado: "Status",
     fecha: "Date", zona: "Area", guardar: "Save", clave: "Password", rol: "Account type",
     turista: "Tourist", prestador: "Service provider", consentimiento: "I accept the data processing policy",
-    revisaCorreo: "We sent you an email to confirm your account. Open it in Mailpit (localhost:8025).",
+    revisaCorreo: "We sent you an email to confirm your account. Open it in the demo mailbox (Mailpit).",
     cuentaConfirmada: "Account confirmed. You can sign in now.",
   },
 } as const;

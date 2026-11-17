@@ -1,0 +1,59 @@
+# Despliegue en la nube (una VM Linux con Docker): HTTPS con Let's Encrypt y solo 80/443 publicados.
+#
+#   sh despliegue/nube/preparar.sh <dominio>      (una sola vez: claves, .env y acceso a Mailpit)
+#   docker compose -f docker-compose.yml -f docker-compose.nube.yml up -d --build
+#   docker compose -f docker-compose.yml -f docker-compose.nube.yml run --rm demo
+#
+# Con la IP pública de la VM sirve un dominio gratuito de sslip.io, p. ej. 20-226-88-58.sslip.io.
+# Mailpit queda en https://<dominio>/correo/ con usuario "equipo" (contraseña en .env).
+# RabbitMQ y el panel de Traefik no se publican.
+services:
+  gateway:
+    command:
+      - --entrypoints.web.address=:80
+      - --entrypoints.web.http.redirections.entrypoint.to=websecure
+      - --entrypoints.web.http.redirections.entrypoint.scheme=https
+      - --entrypoints.websecure.address=:443
+      - --entrypoints.websecure.http.tls.certresolver=le
+      - --entrypoints.websecure.http.tls.domains[0].main=${DOMINIO:?falta DOMINIO en .env}
+      - --certificatesresolvers.le.acme.httpchallenge=true
+      - --certificatesresolvers.le.acme.httpchallenge.entrypoint=web
+      - --certificatesresolvers.le.acme.storage=/letsencrypt/acme.json
+      - --providers.file.directory=/etc/traefik/dinamico
+      - --accesslog=true
+    ports: !override
+      - "80:80"
+      - "443:443"
+    volumes: !override
+      - ./despliegue/gateway/dinamico.yml:/etc/traefik/dinamico/rutas.yml:ro
+      - ./despliegue/nube/correo.yml:/etc/traefik/dinamico/correo.yml:ro
+      - letsencrypt:/letsencrypt
+    restart: unless-stopped
+
+  rabbitmq:
+    ports: !reset []
+    restart: unless-stopped
+
+  mailpit:
+    ports: !reset []
+    environment:
+      MP_WEBROOT: correo
+    restart: unless-stopped
+
+  postgres: { restart: unless-stopped }
+  auth: { restart: unless-stopped }
+  catalogo: { restart: unless-stopped }
+  reservas: { restart: unless-stopped }
+  ia: { restart: unless-stopped }
+  analitica: { restart: unless-stopped }
+  frontend: { restart: unless-stopped }
+
+  demo:
+    environment:
+      URL_GATEWAY: https://${DOMINIO}
+      URL_MAILPIT: http://mailpit:8025/correo
+    extra_hosts:
+      - "${DOMINIO}:host-gateway"
+
+volumes:
+  letsencrypt:
