@@ -121,11 +121,11 @@ docker compose logs -f catalog-service
 alembic upgrade head
 
 # Iniciar el servidor de desarrollo
-uvicorn catalog_service.api.main:app --reload --port 8001
+uvicorn catalog_service.api.main:app --reload --port 8002
 ```
 
 La documentación interactiva Swagger estará disponible en:
-👉 **http://localhost:8001/docs**
+👉 **http://localhost:8002/docs**
 
 ---
 
@@ -156,4 +156,6 @@ mypy catalog_service
 - **Vocabulario Canónico (`vocabulario.json`):** Solo se admiten los intereses `naturaleza`, `cultura`, `gastronomia`, `historia`, `playa`, `aventura` y las zonas `minca`, `tayrona`, `centro`, `los-naranjos`, `taganga`, `rodadero`.
 - **Contrato de Oferta (`catalogo.oferta.schema.json`):** Todos los eventos publicados cumplen estrictamente con los 9 campos requeridos, tipos y rangos.
 - **Transactional Outbox (`sobre-evento.schema.json`):** Los eventos se persisten en la tabla `outbox` en la misma transacción atómica de negocio y usan el sobre común.
+- **Relevo a RabbitMQ (`infrastructure/outbox_relay.py`):** con `RABBITMQ_URL` configurado, un proceso de fondo publica los eventos pendientes del outbox en el exchange topic `turismo` (routing key = tipo, p. ej. `catalogo.oferta.publicada`) con confirmación del broker, y marca `publicado_en`. Si RabbitMQ no responde, los eventos esperan y se reintentan. Entrega al menos una vez: los consumidores (IA, Reservas) descartan repetidos por `evento_id`.
+- **JWT de Auth (ADR-06, `infrastructure/security.py`):** solo se acepta `Authorization: Bearer <token>` firmado por Auth con **ES256**; se validan firma, emisor (`JWT_ISSUER`), audiencia (`JWT_AUDIENCE`), expiración y rol. La clave pública se configura con `JWT_PUBLIC_KEY_FILE` (PEM) o `JWT_JWKS_URL` (endpoint `/jwks` de Auth). Sin clave configurada, las rutas protegidas responden 401. No existen cabeceras de simulación (`X-User-Id`) ni tokens de prueba: las pruebas firman tokens reales con una clave de prueba (`tests/auth_util.py`, `tests/api/test_seguridad_jwt.py`).
 - **Sin Credenciales en Repositorio:** El archivo `.env` está ignorado en `.gitignore`. No se almacenan claves privadas ni tokens.

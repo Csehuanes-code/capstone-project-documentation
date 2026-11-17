@@ -64,7 +64,7 @@ Requiere Python 3.12.
 py -3.12 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -e .
-uvicorn auth_service.api.main:app --reload
+uvicorn auth_service.api.main:app --reload --port 8001
 ```
 
 Para instalar también las herramientas de desarrollo: `python -m pip install -e ".[dev]"`.
@@ -117,6 +117,6 @@ mypy --strict src
 
 Si no activaste `.venv`, puedes usar `\.venv\Scripts\python.exe -m pytest -p no:cacheprovider`, `\.venv\Scripts\ruff.exe check src tests` y `\.venv\Scripts\mypy.exe --strict src`.
 
-Abre `http://127.0.0.1:8000/health`, `http://127.0.0.1:8000/ready` o `http://127.0.0.1:8000/docs`.
+Abre `http://127.0.0.1:8001/health`, `http://127.0.0.1:8001/ready` o `http://127.0.0.1:8001/docs` (con Docker Compose; con `uvicorn` local agrega `--port 8001`). Puertos del grupo: IA 8000, Auth 8001, Catálogo 8002, Reservas 8003, Analítica 8004.
 
 No usar datos reales ni guardar claves, contraseñas o secretos en este borrador.

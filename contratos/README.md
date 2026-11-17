@@ -1,4 +1,4 @@
-# Contratos del servicio IA (propuesta)
+# Contratos del grupo (fuente única)
 
 | Archivo | Para quién | Qué es |
 |---|---|---|
@@ -9,7 +9,9 @@
 | `eventos/analitica.zona.ocupacion_actualizada.schema.json` | Carlos publica | Ocupación de una zona |
 | `eventos/reservas.reserva.confirmada.schema.json` | Santiago publica | Reserva confirmada (sin datos del turista) |
 
-Todo es propuesta: si un campo no les sirve, se cambia aquí antes de programarlo.
+Esta carpeta es la ÚNICA copia de los contratos: los servicios y sus pruebas la leen desde aquí
+(no copiarla dentro de cada servicio). Un cambio aquí vuelve a correr el CI de IA y de Catálogo.
+Si un campo no les sirve, se cambia aquí, en un pull request, antes de programarlo.
 Según el documento de diseño (§5.1), estos archivos deben terminar en el paquete común
 `contratos.openapi` / `contratos.eventos` del repositorio del grupo.
 

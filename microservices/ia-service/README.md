@@ -55,7 +55,7 @@ el trigger que impide modificar o borrar una versión de pesos.
 | `GET /health` | Liveness: el proceso está vivo | — |
 | `GET /health/ready` | Readiness: 503 si la base de datos no responde. También informa si RabbitMQ está conectado, sin quitar el servicio de rotación | Balanceador / Docker |
 
-Contratos para el equipo (API, eventos y vocabulario compartido): [contratos/](contratos/README.md).
+Contratos para el equipo (API, eventos y vocabulario compartido): [contratos/](../../contratos/README.md) (en la raíz del repo, fuente única para los 5 servicios).
 
 ## Eventos (RabbitMQ, ADR-04)
 
@@ -68,7 +68,7 @@ sin llamarlos en cada petición. Escucha en la cola `ia.eventos` del exchange to
 | `reservas.reserva.confirmada` | Reservas | +1 a la popularidad de la oferta |
 | `analitica.zona.ocupacion_actualizada` | Analítica | Actualiza la ocupación de la zona (ignora mediciones más viejas) |
 
-- `api/consumidor_eventos.py` valida el sobre y los datos contra [contratos/eventos/](contratos/eventos) y llama al manejador de `aplicacion/eventos.py`.
+- `api/consumidor_eventos.py` valida el sobre y los datos contra [contratos/eventos/](../../contratos/eventos) y llama al manejador de `aplicacion/eventos.py`.
 - `infraestructura/rabbitmq.py` es el cliente (pika, en un hilo de fondo que se reconecta solo).
 - El mensaje se confirma solo después de guardar. Un evento repetido no cambia nada (`evento_procesado`).
 - Mensaje que no cumple el contrato → `ia.eventos.errores` (se ve en el panel, http://localhost:15672).

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from typing import Annotated, Any
-from uuid import UUID, uuid4
+from uuid import UUID
 
 from fastapi import Depends, Header, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -33,6 +33,7 @@ from catalog_service.infrastructure.reservas_client import (
     HttpReservasClient,
     MockReservasClient,
 )
+from catalog_service.infrastructure.security import TokenInvalido, obtener_verificador
 
 # ---------------------------------------------------------------------------
 # Auth / User Extraction (ADR-06 §1.1)
@@ -47,53 +48,24 @@ class CurrentUser:
 
 async def get_current_user_optional(
     authorization: Annotated[str | None, Header()] = None,
-    x_user_id: Annotated[str | None, Header(alias="X-User-Id")] = None,
-    x_user_role: Annotated[str | None, Header(alias="X-User-Role")] = None,
 ) -> CurrentUser | None:
-    """Extract authenticated user from JWT token or fallback simulation headers (ADR-06)."""
-    # 1. Direct simulation headers (for local testing/gateway forwarded headers)
-    if x_user_id:
-        try:
-            uid = UUID(x_user_id)
-            role = x_user_role or "turista"
-            return CurrentUser(user_id=uid, role=role)
-        except ValueError:
-            pass
+    """Usuario del JWT emitido por Auth (ES256, validado con su clave pública; ADR-06).
 
-    # 2. Bearer token (JWT inspection)
-    if authorization and authorization.startswith("Bearer "):
-        token = authorization.split(" ")[1]
-        # For simplicity and testability in dev, allow dummy token or parse
-        if token.startswith("test-"):
-            # Format: test-<role>-<uuid>
-            parts = token.split("-", 2)
-            role = parts[1] if len(parts) > 1 else "turista"
-            try:
-                uid = UUID(parts[2]) if len(parts) > 2 else uuid4()
-            except ValueError:
-                uid = uuid4()
-            return CurrentUser(user_id=uid, role=role)
-
-        # In production with PyJWT
-        try:
-            import jwt
-
-            payload = jwt.decode(
-                token,
-                settings.JWT_SECRET,
-                algorithms=[settings.JWT_ALGORITHM],
-                options={
-                    "verify_signature": False if settings.ENVIRONMENT == "development" else True
-                },
-            )
-            sub = payload.get("sub")
-            role = payload.get("rol", "turista")
-            if sub:
-                return CurrentUser(user_id=UUID(sub), role=role)
-        except Exception:
-            return None
-
-    return None
+    Solo se acepta `Authorization: Bearer <token>`. No hay cabeceras de simulación ni tokens
+    de prueba: en las pruebas se firman tokens reales con una clave de prueba
+    (tests/auth_util.py). Sin token, o con un token inválido, devuelve None y las rutas
+    protegidas responden 401.
+    """
+    if not authorization or not authorization.startswith("Bearer "):
+        return None
+    verificador = obtener_verificador()
+    if verificador is None:
+        return None
+    try:
+        identidad = verificador.verificar(authorization.removeprefix("Bearer ").strip())
+    except TokenInvalido:
+        return None
+    return CurrentUser(user_id=identidad.user_id, role=identidad.rol)
 
 
 async def get_current_user(

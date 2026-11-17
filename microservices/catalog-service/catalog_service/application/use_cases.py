@@ -62,6 +62,16 @@ from catalog_service.domain.value_objects import (
     Temporada,
 )
 
+# Atractivos públicos administrados por la plataforma no tienen prestador (prestador_id=None).
+# El evento catalogo.oferta.* exige un prestador_id de texto: se usa este valor fijo para que
+# la misma oferta tenga siempre el mismo prestador en todos sus eventos.
+PRESTADOR_PLATAFORMA = "plataforma"
+
+
+def _prestador_evento(prestador_id: UUID | None) -> str:
+    return str(prestador_id) if prestador_id is not None else PRESTADOR_PLATAFORMA
+
+
 # ---------------------------------------------------------------------------
 # CU-07: Consultar Catálogo
 # ---------------------------------------------------------------------------
@@ -412,7 +422,7 @@ class GestionarOfertaUseCase:
             "calificacion_promedio": float(oferta.calificacion_promedio),
             "numero_resenas": oferta.total_calificaciones,
             "indice_sostenibilidad": float(indice_sostenibilidad),
-            "prestador_id": str(oferta.prestador_id or uuid4()),
+            "prestador_id": _prestador_evento(oferta.prestador_id),
             "activa": activa if activa is not None else (oferta.estado == EstadoOferta.PUBLICADA),
         }
         await self.event_publisher.publish(tipo_evento, payload)
@@ -516,7 +526,7 @@ class CrearCalificacionUseCase:
             "calificacion_promedio": float(oferta.calificacion_promedio),
             "numero_resenas": oferta.total_calificaciones,
             "indice_sostenibilidad": 1.0,
-            "prestador_id": str(oferta.prestador_id or uuid4()),
+            "prestador_id": _prestador_evento(oferta.prestador_id),
             "activa": oferta.estado == EstadoOferta.PUBLICADA,
         }
         await self.event_publisher.publish("catalogo.oferta.actualizada", payload)

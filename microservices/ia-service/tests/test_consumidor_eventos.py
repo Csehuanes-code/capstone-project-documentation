@@ -32,7 +32,7 @@ from ia.infraestructura.memoria import (
     ZonasEnMemoria,
 )
 
-CONTRATOS = Path(__file__).resolve().parents[1] / "contratos" / "eventos"
+CONTRATOS = Path(__file__).resolve().parents[3] / "contratos" / "eventos"
 
 
 def _ejemplo(archivo: str) -> dict:

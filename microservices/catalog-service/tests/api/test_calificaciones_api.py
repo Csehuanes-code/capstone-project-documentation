@@ -9,6 +9,7 @@ from httpx import AsyncClient
 
 from catalog_service.domain.entities import Oferta
 from catalog_service.domain.value_objects import EstadoOferta
+from tests.auth_util import cabeceras
 
 
 @pytest.mark.asyncio
@@ -34,10 +35,7 @@ async def test_crear_calificacion_api(
     turista_id = uuid4()
     fake_repos["reservas_client"].set_reserva(reserva_id, "completada")
 
-    headers = {
-        "X-User-Id": str(turista_id),
-        "X-User-Role": "turista",
-    }
+    headers = cabeceras(str(turista_id), "turista")
     payload = {
         "reserva_id": str(reserva_id),
         "puntaje": 5,
@@ -88,7 +86,7 @@ async def test_responder_calificacion_api(
     fake_repos["reservas_client"].set_reserva(reserva_id, "completada")
 
     # Tourist creates review
-    headers_turista = {"X-User-Id": str(turista_id), "X-User-Role": "turista"}
+    headers_turista = cabeceras(str(turista_id), "turista")
     calif_resp = await async_client.post(
         f"/api/v1/catalogo/ofertas/{oferta.id}/calificaciones",
         json={"reserva_id": str(reserva_id), "puntaje": 4, "comentario": "Muy buen tour"},
@@ -97,7 +95,7 @@ async def test_responder_calificacion_api(
     calificacion_id = calif_resp.json()["id"]
 
     # Provider responds to review
-    headers_prestador = {"X-User-Id": str(p.prestador_id), "X-User-Role": "prestador"}
+    headers_prestador = cabeceras(str(p.prestador_id), "prestador")
     resp = await async_client.post(
         f"/api/v1/catalogo/calificaciones/{calificacion_id}/respuesta",
         json={"texto": "¡Muchas gracias por visitarnos! Esperamos verte pronto de nuevo."},
@@ -129,7 +127,7 @@ async def test_moderar_calificacion_admin_solo(
     reserva_id = uuid4()
     fake_repos["reservas_client"].set_reserva(reserva_id, "completada")
 
-    headers_turista = {"X-User-Id": str(uuid4()), "X-User-Role": "turista"}
+    headers_turista = cabeceras(str(uuid4()), "turista")
     calif_resp = await async_client.post(
         f"/api/v1/catalogo/ofertas/{oferta.id}/calificaciones",
         json={"reserva_id": str(reserva_id), "puntaje": 1, "comentario": "Texto inapropiado"},
@@ -146,7 +144,7 @@ async def test_moderar_calificacion_admin_solo(
     assert resp_forbidden.status_code == 403
 
     # Admin moderating should succeed
-    headers_admin = {"X-User-Id": str(uuid4()), "X-User-Role": "administrador"}
+    headers_admin = cabeceras(str(uuid4()), "administrador")
     resp_ok = await async_client.put(
         f"/api/v1/catalogo/calificaciones/{calificacion_id}/moderacion",
         json={"nuevo_estado": "oculta", "justificacion": "Lenguaje que viola términos"},
