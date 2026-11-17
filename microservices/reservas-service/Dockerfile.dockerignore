@@ -1,0 +1,14 @@
+# La imagen se construye desde la RAÍZ del repo (necesita comun/), así que Docker usa este
+# archivo (<Dockerfile>.dockerignore) en lugar de un .dockerignore: sin él copiaría todo el
+# monorepo (.git, otros servicios) en cada build.
+*
+!comun/
+!microservices/reservas-service/
+**/__pycache__/
+**/*.pyc
+**/.pytest_cache/
+**/*.egg-info/
+**/.venv/
+**/.env
+microservices/reservas-service/tests/
+microservices/reservas-service/docs/

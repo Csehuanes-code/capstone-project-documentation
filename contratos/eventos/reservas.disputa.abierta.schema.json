@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "contratos/eventos/reservas.disputa.abierta.schema.json",
+  "title": "reservas.disputa.abierta — v1",
+  "description": "Disputa de un cobro puesta en revisión. No contiene datos personales.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["disputa_id", "reserva_id", "monto", "moneda"],
+  "properties": {
+    "disputa_id": { "type": "string", "format": "uuid" },
+    "reserva_id": { "type": "string" },
+    "monto": { "type": "number", "minimum": 0 },
+    "moneda": { "type": "string", "const": "COP" }
+  },
+  "examples": [
+    {
+      "disputa_id": "9ef9c6d9-08fd-4f71-8c98-9c2c08d9147e",
+      "reserva_id": "SMT-7K3Q9P",
+      "monto": 120000,
+      "moneda": "COP"
+    }
+  ]
+}

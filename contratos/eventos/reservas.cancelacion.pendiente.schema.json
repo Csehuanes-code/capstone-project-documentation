@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "contratos/eventos/reservas.cancelacion.pendiente.schema.json",
+  "title": "reservas.cancelacion.pendiente — v1",
+  "description": "Reembolso fallido; un administrador debe gestionarlo. No contiene datos personales.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["reserva_id", "monto_reembolso", "moneda", "motivo"],
+  "properties": {
+    "reserva_id": { "type": "string" },
+    "monto_reembolso": { "type": "number", "minimum": 0 },
+    "moneda": { "type": "string", "const": "COP" },
+    "motivo": { "type": "string", "maxLength": 200 }
+  },
+  "examples": [
+    {
+      "reserva_id": "SMT-7K3Q9P",
+      "monto_reembolso": 120000,
+      "moneda": "COP",
+      "motivo": "La pasarela rechazó el reembolso."
+    }
+  ]
+}

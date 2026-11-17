@@ -1,0 +1,2002 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Servicio Reservas — Turismo Santa Marta (Grupo 4)",
+    "description": "Disponibilidad, reservas (individuales y en grupo), pago simulado, cancelación con reembolso, lista de espera, disputas de pago y notificaciones.",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": [
+          "Salud"
+        ],
+        "summary": "Health",
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Health Health Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health/ready": {
+      "get": {
+        "tags": [
+          "Salud"
+        ],
+        "summary": "Health Ready",
+        "operationId": "health_ready_health_ready_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Health Ready Health Ready Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ofertas/{oferta_id}/disponibilidad": {
+      "get": {
+        "tags": [
+          "Disponibilidad"
+        ],
+        "summary": "Franjas con cupo para una fecha y número de personas (CU-08, W2)",
+        "operationId": "consultar_disponibilidad_api_v1_ofertas__oferta_id__disponibilidad_get",
+        "parameters": [
+          {
+            "name": "oferta_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Oferta Id"
+            }
+          },
+          {
+            "name": "fecha",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "AAAA-MM-DD",
+              "title": "Fecha"
+            },
+            "description": "AAAA-MM-DD"
+          },
+          {
+            "name": "personas",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 20,
+              "minimum": 1,
+              "default": 1,
+              "title": "Personas"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/FranjaDisponibilidadResponse"
+                  },
+                  "title": "Response Consultar Disponibilidad Api V1 Ofertas  Oferta Id  Disponibilidad Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ofertas/{oferta_id}/disponibilidad/cercanas": {
+      "get": {
+        "tags": [
+          "Disponibilidad"
+        ],
+        "summary": "Fechas cercanas con cupo cuando la pedida está agotada (RF-RES-02)",
+        "operationId": "fechas_cercanas_api_v1_ofertas__oferta_id__disponibilidad_cercanas_get",
+        "parameters": [
+          {
+            "name": "oferta_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Oferta Id"
+            }
+          },
+          {
+            "name": "fecha",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "description": "Fecha deseada (AAAA-MM-DD)",
+              "title": "Fecha"
+            },
+            "description": "Fecha deseada (AAAA-MM-DD)"
+          },
+          {
+            "name": "personas",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 20,
+              "minimum": 1,
+              "default": 1,
+              "title": "Personas"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/FranjaDisponibilidadResponse"
+                  },
+                  "title": "Response Fechas Cercanas Api V1 Ofertas  Oferta Id  Disponibilidad Cercanas Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/reservas": {
+      "post": {
+        "tags": [
+          "Reservas"
+        ],
+        "summary": "Reservar y pagar (CU-11 flujo crítico, CU-12 grupo, CU-16 pago; W4)",
+        "operationId": "iniciar_reserva_api_v1_reservas_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 4,
+              "maxLength": 120,
+              "description": "Repetir la misma clave devuelve la misma respuesta",
+              "title": "Idempotency-Key"
+            },
+            "description": "Repetir la misma clave devuelve la misma respuesta"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CrearReservaRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Reserva confirmada y pago aprobado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComprobanteReservaResponse"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "Pago rechazado o tiempo agotado: sin cobro y cupo devuelto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComprobanteReservaResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "La franja no existe",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Sin cupo suficiente (informa el máximo), oferta inactiva o lista de espera vencida",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CupoInsuficienteResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Catálogo no disponible (no se bloqueó cupo)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Falta el token o no es válido",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Rol sin permiso o recurso de otro usuario",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/reservas/mias": {
+      "get": {
+        "tags": [
+          "Reservas"
+        ],
+        "summary": "Historial del turista, filtrable por estado, fechas y prestador (W6, RF-RES-15)",
+        "operationId": "listar_mis_reservas_api_v1_reservas_mias_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "estado",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "pendiente_pago, confirmada, cancelada…",
+              "title": "Estado"
+            },
+            "description": "pendiente_pago, confirmada, cancelada…"
+          },
+          {
+            "name": "desde",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Desde"
+            }
+          },
+          {
+            "name": "hasta",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Hasta"
+            }
+          },
+          {
+            "name": "prestador_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Prestador Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ComprobanteReservaResponse"
+                  },
+                  "title": "Response Listar Mis Reservas Api V1 Reservas Mias Get"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Falta el token o no es válido",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Rol sin permiso o recurso de otro usuario",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/reservas/{reserva_id}": {
+      "get": {
+        "tags": [
+          "Reservas"
+        ],
+        "summary": "Comprobante: solo el turista dueño, el prestador de la oferta o un admin (CU-18, W5)",
+        "operationId": "consultar_comprobante_api_v1_reservas__reserva_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "reserva_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Reserva Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComprobanteReservaResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "401": {
+            "description": "Falta el token o no es válido",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Rol sin permiso o recurso de otro usuario",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/reservas/{reserva_id}/cancelar": {
+      "post": {
+        "tags": [
+          "Reservas"
+        ],
+        "summary": "Cancelar aplicando la política del prestador y reembolsar si corresponde (CU-14)",
+        "operationId": "cancelar_reserva_api_v1_reservas__reserva_id__cancelar_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "reserva_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Reserva Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComprobanteReservaResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "401": {
+            "description": "Falta el token o no es válido",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Rol sin permiso o recurso de otro usuario",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/reservas/{reserva_id}/disputas": {
+      "post": {
+        "tags": [
+          "Disputas"
+        ],
+        "summary": "Reportar un cobro incorrecto (CU-17)",
+        "operationId": "abrir_disputa_api_v1_reservas__reserva_id__disputas_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "reserva_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Reserva Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AbrirDisputaRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DisputaResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "401": {
+            "description": "Falta el token o no es válido",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Rol sin permiso o recurso de otro usuario",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/disputas": {
+      "get": {
+        "tags": [
+          "Disputas"
+        ],
+        "summary": "Disputas para revisión del administrador (CU-17)",
+        "operationId": "listar_disputas_api_v1_admin_disputas_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "estado",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^(en_revision|aprobada|rechazada)$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Estado"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DisputaResponse"
+                  },
+                  "title": "Response Listar Disputas Api V1 Admin Disputas Get"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Falta el token o no es válido",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Rol sin permiso o recurso de otro usuario",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/disputas/{disputa_id}/resolver": {
+      "post": {
+        "tags": [
+          "Disputas"
+        ],
+        "summary": "Aprobar (con reembolso) o rechazar una disputa, con justificación (CU-17)",
+        "operationId": "resolver_disputa_api_v1_admin_disputas__disputa_id__resolver_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "disputa_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Disputa Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResolverDisputaRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DisputaResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "502": {
+            "description": "La pasarela rechazó el reembolso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Falta el token o no es válido",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Rol sin permiso o recurso de otro usuario",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/franjas/{franja_id}/lista-espera": {
+      "post": {
+        "tags": [
+          "Lista de espera"
+        ],
+        "summary": "Unirse a la lista de espera de una franja agotada (CU-13)",
+        "operationId": "unirse_lista_espera_api_v1_franjas__franja_id__lista_espera_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "franja_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Franja Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UnirseListaEsperaRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntradaListaEsperaResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "401": {
+            "description": "Falta el token o no es válido",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Rol sin permiso o recurso de otro usuario",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/lista-espera/mias": {
+      "get": {
+        "tags": [
+          "Lista de espera"
+        ],
+        "summary": "Mis entradas de lista de espera (posición u oferta vigente)",
+        "operationId": "mi_lista_espera_api_v1_lista_espera_mias_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/EntradaListaEsperaResponse"
+                  },
+                  "type": "array",
+                  "title": "Response Mi Lista Espera Api V1 Lista Espera Mias Get"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Falta el token o no es válido",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Rol sin permiso o recurso de otro usuario",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/lista-espera/{entrada_id}": {
+      "delete": {
+        "tags": [
+          "Lista de espera"
+        ],
+        "summary": "Salir de la lista o declinar el cupo ofrecido (pasa al siguiente)",
+        "operationId": "retirarse_lista_espera_api_v1_lista_espera__entrada_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "entrada_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Entrada Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntradaListaEsperaResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "401": {
+            "description": "Falta el token o no es válido",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Rol sin permiso o recurso de otro usuario",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/prestador/reservas": {
+      "get": {
+        "tags": [
+          "Prestador"
+        ],
+        "summary": "Reservas de mis ofertas; 403 si se piden las de otro prestador (W7, RC-N03)",
+        "operationId": "listar_reservas_prestador_api_v1_prestador_reservas_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "prestador_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Si es otro distinto al del token → 403",
+              "title": "Prestador Id"
+            },
+            "description": "Si es otro distinto al del token → 403"
+          },
+          {
+            "name": "estado",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Estado"
+            }
+          },
+          {
+            "name": "desde",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Desde"
+            }
+          },
+          {
+            "name": "hasta",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Hasta"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ComprobanteReservaResponse"
+                  },
+                  "title": "Response Listar Reservas Prestador Api V1 Prestador Reservas Get"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Falta el token o no es válido",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Rol sin permiso o recurso de otro usuario",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/prestador/franjas": {
+      "post": {
+        "tags": [
+          "Prestador"
+        ],
+        "summary": "Publicar una franja de disponibilidad para una oferta propia",
+        "operationId": "crear_franja_api_v1_prestador_franjas_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CrearFranjaRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FranjaDisponibilidadResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Falta el token o no es válido",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Rol sin permiso o recurso de otro usuario",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AbrirDisputaRequest": {
+        "properties": {
+          "motivo": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 10,
+            "title": "Motivo"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "motivo"
+        ],
+        "title": "AbrirDisputaRequest"
+      },
+      "ComprobanteReservaResponse": {
+        "properties": {
+          "reserva_id": {
+            "type": "string",
+            "title": "Reserva Id"
+          },
+          "codigo": {
+            "type": "string",
+            "title": "Codigo"
+          },
+          "estado": {
+            "type": "string",
+            "enum": [
+              "pendiente_pago",
+              "confirmada",
+              "expirada",
+              "cancelada",
+              "cancelacion_pendiente"
+            ],
+            "title": "Estado"
+          },
+          "oferta_id": {
+            "type": "string",
+            "title": "Oferta Id"
+          },
+          "nombre_oferta": {
+            "type": "string",
+            "title": "Nombre Oferta"
+          },
+          "zona_id": {
+            "type": "string",
+            "title": "Zona Id"
+          },
+          "prestador_id": {
+            "type": "string",
+            "title": "Prestador Id"
+          },
+          "prestador_nombre": {
+            "type": "string",
+            "title": "Prestador Nombre"
+          },
+          "prestador_contacto": {
+            "type": "string",
+            "title": "Prestador Contacto"
+          },
+          "punto_encuentro": {
+            "type": "string",
+            "title": "Punto Encuentro"
+          },
+          "fecha_servicio": {
+            "type": "string",
+            "title": "Fecha Servicio"
+          },
+          "hora_servicio": {
+            "type": "string",
+            "title": "Hora Servicio"
+          },
+          "personas": {
+            "type": "integer",
+            "title": "Personas"
+          },
+          "acompanantes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Acompanantes"
+          },
+          "precio_unitario": {
+            "type": "string",
+            "title": "Precio Unitario"
+          },
+          "total": {
+            "type": "string",
+            "title": "Total"
+          },
+          "moneda": {
+            "type": "string",
+            "title": "Moneda"
+          },
+          "politica_cancelacion": {
+            "$ref": "#/components/schemas/PoliticaCancelacionDTO"
+          },
+          "pago_aprobado": {
+            "type": "boolean",
+            "title": "Pago Aprobado"
+          },
+          "referencia_pago": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Referencia Pago"
+          },
+          "monto_reembolso": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Monto Reembolso"
+          },
+          "mensaje_es": {
+            "type": "string",
+            "title": "Mensaje Es"
+          },
+          "mensaje_en": {
+            "type": "string",
+            "title": "Mensaje En"
+          }
+        },
+        "type": "object",
+        "required": [
+          "reserva_id",
+          "codigo",
+          "estado",
+          "oferta_id",
+          "nombre_oferta",
+          "zona_id",
+          "prestador_id",
+          "prestador_nombre",
+          "prestador_contacto",
+          "punto_encuentro",
+          "fecha_servicio",
+          "hora_servicio",
+          "personas",
+          "acompanantes",
+          "precio_unitario",
+          "total",
+          "moneda",
+          "politica_cancelacion",
+          "pago_aprobado",
+          "mensaje_es",
+          "mensaje_en"
+        ],
+        "title": "ComprobanteReservaResponse"
+      },
+      "CrearFranjaRequest": {
+        "properties": {
+          "oferta_id": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 2,
+            "title": "Oferta Id"
+          },
+          "fecha": {
+            "type": "string",
+            "format": "date",
+            "title": "Fecha"
+          },
+          "hora_inicio": {
+            "type": "string",
+            "format": "time",
+            "title": "Hora Inicio"
+          },
+          "cupo_total": {
+            "type": "integer",
+            "maximum": 500.0,
+            "minimum": 1.0,
+            "title": "Cupo Total"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "oferta_id",
+          "fecha",
+          "hora_inicio",
+          "cupo_total"
+        ],
+        "title": "CrearFranjaRequest"
+      },
+      "CrearReservaRequest": {
+        "properties": {
+          "franja_id": {
+            "type": "string",
+            "maxLength": 36,
+            "minLength": 1,
+            "title": "Franja Id",
+            "description": "Franja de disponibilidad elegida"
+          },
+          "personas": {
+            "type": "integer",
+            "maximum": 20.0,
+            "minimum": 1.0,
+            "title": "Personas",
+            "description": "Personas (más de 1 = reserva grupal, CU-12)"
+          },
+          "correo_turista": {
+            "type": "string",
+            "format": "email",
+            "title": "Correo Turista",
+            "description": "Correo donde llega el comprobante"
+          },
+          "idioma": {
+            "type": "string",
+            "enum": [
+              "es",
+              "en"
+            ],
+            "title": "Idioma",
+            "description": "Idioma del comprobante y correos (RC-S02)",
+            "default": "es"
+          },
+          "metodo_pago": {
+            "type": "string",
+            "enum": [
+              "tarjeta",
+              "pse"
+            ],
+            "title": "Metodo Pago",
+            "default": "tarjeta"
+          },
+          "datos_pago": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Datos Pago",
+            "description": "Datos de la pasarela SIMULADA. numero_tarjeta terminada en 0002 = rechazado, 9999 = tiempo agotado, 0019 = aprobado pero sin reembolsos; otra = aprobado."
+          },
+          "acompanantes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 19,
+            "title": "Acompanantes",
+            "description": "Nombres opcionales de acompañantes (RF-RES-10: se pueden omitir)"
+          },
+          "entrada_lista_espera_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 36
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entrada Lista Espera Id",
+            "description": "Si confirma un cupo ofrecido desde la lista de espera (CU-13)"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "franja_id",
+          "personas",
+          "correo_turista"
+        ],
+        "title": "CrearReservaRequest"
+      },
+      "CupoInsuficienteResponse": {
+        "properties": {
+          "detail": {
+            "type": "string",
+            "title": "Detail"
+          },
+          "disponibles": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Disponibles",
+            "description": "Máximo que sí se puede reservar (CU-12 3a)"
+          },
+          "lista_espera_disponible": {
+            "type": "boolean",
+            "title": "Lista Espera Disponible",
+            "description": "Puede unirse a la lista de espera (CU-13)",
+            "default": true
+          }
+        },
+        "type": "object",
+        "required": [
+          "detail"
+        ],
+        "title": "CupoInsuficienteResponse"
+      },
+      "DisputaResponse": {
+        "properties": {
+          "disputa_id": {
+            "type": "string",
+            "title": "Disputa Id"
+          },
+          "reserva_id": {
+            "type": "string",
+            "title": "Reserva Id"
+          },
+          "estado": {
+            "type": "string",
+            "enum": [
+              "en_revision",
+              "aprobada",
+              "rechazada"
+            ],
+            "title": "Estado"
+          },
+          "motivo": {
+            "type": "string",
+            "title": "Motivo"
+          },
+          "justificacion": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Justificacion"
+          },
+          "monto_reembolso": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Monto Reembolso"
+          },
+          "creado_en": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Creado En"
+          },
+          "resuelta_en": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resuelta En"
+          }
+        },
+        "type": "object",
+        "required": [
+          "disputa_id",
+          "reserva_id",
+          "estado",
+          "motivo",
+          "justificacion",
+          "monto_reembolso",
+          "creado_en",
+          "resuelta_en"
+        ],
+        "title": "DisputaResponse"
+      },
+      "EntradaListaEsperaResponse": {
+        "properties": {
+          "entrada_id": {
+            "type": "string",
+            "title": "Entrada Id"
+          },
+          "franja_id": {
+            "type": "string",
+            "title": "Franja Id"
+          },
+          "personas": {
+            "type": "integer",
+            "title": "Personas"
+          },
+          "estado": {
+            "type": "string",
+            "enum": [
+              "esperando",
+              "ofrecida",
+              "convertida",
+              "expirada",
+              "retirada"
+            ],
+            "title": "Estado"
+          },
+          "posicion": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Posicion",
+            "description": "Lugar en la fila mientras está 'esperando'"
+          },
+          "oferta_expira_en": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Oferta Expira En",
+            "description": "Plazo para confirmar si está 'ofrecida'"
+          },
+          "mensaje_es": {
+            "type": "string",
+            "title": "Mensaje Es"
+          },
+          "mensaje_en": {
+            "type": "string",
+            "title": "Mensaje En"
+          }
+        },
+        "type": "object",
+        "required": [
+          "entrada_id",
+          "franja_id",
+          "personas",
+          "estado",
+          "mensaje_es",
+          "mensaje_en"
+        ],
+        "title": "EntradaListaEsperaResponse"
+      },
+      "ErrorResponse": {
+        "properties": {
+          "detail": {
+            "type": "string",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "required": [
+          "detail"
+        ],
+        "title": "ErrorResponse"
+      },
+      "FranjaDisponibilidadResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "oferta_id": {
+            "type": "string",
+            "title": "Oferta Id"
+          },
+          "zona_id": {
+            "type": "string",
+            "title": "Zona Id"
+          },
+          "prestador_id": {
+            "type": "string",
+            "title": "Prestador Id"
+          },
+          "fecha": {
+            "type": "string",
+            "format": "date",
+            "title": "Fecha"
+          },
+          "hora_inicio": {
+            "type": "string",
+            "title": "Hora Inicio"
+          },
+          "cupo_total": {
+            "type": "integer",
+            "title": "Cupo Total"
+          },
+          "cupo_disponible": {
+            "type": "integer",
+            "title": "Cupo Disponible"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "oferta_id",
+          "zona_id",
+          "prestador_id",
+          "fecha",
+          "hora_inicio",
+          "cupo_total",
+          "cupo_disponible"
+        ],
+        "title": "FranjaDisponibilidadResponse"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "PoliticaCancelacionDTO": {
+        "properties": {
+          "horas_reembolso_total": {
+            "type": "integer",
+            "title": "Horas Reembolso Total"
+          },
+          "horas_reembolso_parcial": {
+            "type": "integer",
+            "title": "Horas Reembolso Parcial"
+          },
+          "porcentaje_reembolso_parcial": {
+            "type": "integer",
+            "title": "Porcentaje Reembolso Parcial"
+          },
+          "descripcion_es": {
+            "type": "string",
+            "title": "Descripcion Es"
+          },
+          "descripcion_en": {
+            "type": "string",
+            "title": "Descripcion En"
+          }
+        },
+        "type": "object",
+        "required": [
+          "horas_reembolso_total",
+          "horas_reembolso_parcial",
+          "porcentaje_reembolso_parcial",
+          "descripcion_es",
+          "descripcion_en"
+        ],
+        "title": "PoliticaCancelacionDTO"
+      },
+      "ResolverDisputaRequest": {
+        "properties": {
+          "decision": {
+            "type": "string",
+            "enum": [
+              "aprobada",
+              "rechazada"
+            ],
+            "title": "Decision"
+          },
+          "justificacion": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 10,
+            "title": "Justificacion"
+          },
+          "monto_reembolso": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Monto Reembolso",
+            "description": "Si se aprueba; por defecto, lo cobrado menos lo ya reembolsado"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "decision",
+          "justificacion"
+        ],
+        "title": "ResolverDisputaRequest"
+      },
+      "UnirseListaEsperaRequest": {
+        "properties": {
+          "personas": {
+            "type": "integer",
+            "maximum": 20.0,
+            "minimum": 1.0,
+            "title": "Personas"
+          },
+          "correo_turista": {
+            "type": "string",
+            "format": "email",
+            "title": "Correo Turista"
+          },
+          "idioma": {
+            "type": "string",
+            "enum": [
+              "es",
+              "en"
+            ],
+            "title": "Idioma",
+            "default": "es"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "personas",
+          "correo_turista"
+        ],
+        "title": "UnirseListaEsperaRequest"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    },
+    "securitySchemes": {
+      "HTTPBearer": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    }
+  }
+}

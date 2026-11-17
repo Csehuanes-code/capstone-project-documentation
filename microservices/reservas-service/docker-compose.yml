@@ -1,0 +1,68 @@
+services:
+  reservas:
+    build:
+      context: ../..
+      dockerfile: microservices/reservas-service/Dockerfile
+    environment:
+      DATABASE_URL: postgresql+psycopg://reservas:reservas@postgres:5432/reservas_db
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/%2F
+      CATALOGO_URL: ""
+      JWT_CLAVE_PUBLICA: ${JWT_CLAVE_PUBLICA:-}
+      SMTP_HOST: mailpit
+      SMTP_PORT: "1025"
+      RESERVAS_SEMBRAR_DEMO: "1"
+    ports:
+      - "${RESERVAS_API_HOST_PORT:-8003}:8003"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_started
+      mailpit:
+        condition: service_started
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import sys, urllib.request; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8003/health/ready', timeout=2).status == 200 else 1)"
+      interval: 15s
+      timeout: 3s
+      start_period: 20s
+      retries: 5
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: reservas_db
+      POSTGRES_USER: reservas
+      POSTGRES_PASSWORD: reservas
+    ports:
+      - "${RESERVAS_POSTGRES_HOST_PORT:-5434}:5432"
+    volumes:
+      - reservas_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U reservas -d reservas_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "${RESERVAS_RABBITMQ_HOST_PORT:-5672}:5672"
+      - "${RESERVAS_RABBITMQ_UI_HOST_PORT:-15672}:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "${RESERVAS_SMTP_HOST_PORT:-1025}:1025"
+      - "${RESERVAS_MAILPIT_UI_HOST_PORT:-8025}:8025"
+
+volumes:
+  reservas_pgdata:

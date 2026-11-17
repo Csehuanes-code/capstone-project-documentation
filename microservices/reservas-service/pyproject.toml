@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "servicio-reservas"
+version = "1.0.0"
+description = "Microservicio Reservas de la Plataforma de Turismo Santa Marta (Grupo 4)"
+requires-python = ">=3.12"
+# `comun` (plantilla común) se instala aparte desde la raíz del repo: pip install -e ../../comun
+dependencies = [
+    "comun==0.1.0",
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.30.0",
+    "sqlalchemy>=2.0.35",
+    "psycopg[binary]>=3.2.0",
+    "alembic>=1.13",
+    "pika>=1.3.2",
+    "httpx>=0.27.0",
+    "jsonschema>=4.23.0",
+    "pydantic[email]>=2.9.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3.0",
+    "import-linter>=2.0.0",
+]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]

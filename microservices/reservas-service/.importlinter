@@ -1,0 +1,45 @@
+[importlinter]
+root_package = reservas
+include_external_packages = True
+
+[importlinter:contract:capas]
+name = Clean Architecture: las dependencias apuntan hacia el dominio
+type = layers
+layers =
+    reservas.main
+    reservas.api | reservas.infraestructura
+    reservas.aplicacion
+    reservas.dominio
+
+[importlinter:contract:nucleo-sin-frameworks]
+name = Dominio y aplicación sin frameworks ni adaptadores
+type = forbidden
+source_modules =
+    reservas.dominio
+    reservas.aplicacion
+forbidden_modules =
+    fastapi
+    starlette
+    pydantic
+    sqlalchemy
+    psycopg
+    uvicorn
+    pika
+    httpx
+allow_indirect_imports = false
+
+[importlinter:contract:api-sin-infraestructura]
+name = API sin dependencias de infraestructura
+type = forbidden
+source_modules =
+    reservas.api
+forbidden_modules =
+    reservas.infraestructura
+
+[importlinter:contract:infraestructura-sin-api]
+name = Infraestructura sin dependencias de API
+type = forbidden
+source_modules =
+    reservas.infraestructura
+forbidden_modules =
+    reservas.api
