@@ -1,0 +1,100 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Contrato Catálogo - condiciones de oferta para Reservas",
+    "version": "1.0.0",
+    "description": "Respuesta real de GET /api/v1/catalogo/ofertas/{oferta_id}/condiciones."
+  },
+  "paths": {
+    "/api/v1/catalogo/ofertas/{oferta_id}/condiciones": {
+      "get": {
+        "operationId": "obtenerCondicionesOferta",
+        "parameters": [
+          {
+            "name": "oferta_id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "fecha",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "format": "date" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Condiciones actuales de la oferta para la fecha solicitada.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/OfertaCondicionesResponse" }
+              }
+            }
+          },
+          "404": { "description": "La oferta no existe." },
+          "422": { "description": "La fecha o las condiciones solicitadas no son válidas." }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "OfertaCondicionesResponse": {
+        "type": "object",
+        "required": [
+          "oferta_id",
+          "nombre_es",
+          "nombre_en",
+          "estado",
+          "activa",
+          "zona_id",
+          "tarifa_vigente",
+          "politica_cancelacion"
+        ],
+        "properties": {
+          "oferta_id": { "type": "string" },
+          "nombre_es": { "type": "string" },
+          "nombre_en": { "type": "string" },
+          "estado": { "type": "string" },
+          "activa": { "type": "boolean" },
+          "zona_id": { "type": "string" },
+          "tarifa_vigente": {
+            "oneOf": [
+              { "$ref": "#/components/schemas/TarifaVigente" },
+              { "type": "null" }
+            ]
+          },
+          "politica_cancelacion": {
+            "oneOf": [
+              { "$ref": "#/components/schemas/PoliticaCancelacion" },
+              { "type": "null" }
+            ]
+          }
+        }
+      },
+      "TarifaVigente": {
+        "type": "object",
+        "required": ["precio_por_persona", "moneda", "temporada"],
+        "properties": {
+          "precio_por_persona": { "type": "number", "minimum": 0 },
+          "moneda": { "type": "string" },
+          "temporada": { "type": "string" }
+        }
+      },
+      "PoliticaCancelacion": {
+        "type": "object",
+        "required": [
+          "horas_reembolso_total",
+          "horas_reembolso_parcial",
+          "porcentaje_reembolso_parcial"
+        ],
+        "properties": {
+          "horas_reembolso_total": { "type": "integer", "minimum": 0 },
+          "horas_reembolso_parcial": { "type": "integer", "minimum": 0 },
+          "porcentaje_reembolso_parcial": { "type": "integer", "minimum": 0, "maximum": 100 }
+        }
+      }
+    }
+  }
+}
