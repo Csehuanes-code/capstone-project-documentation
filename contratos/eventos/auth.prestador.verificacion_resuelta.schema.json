@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "contratos/eventos/auth.prestador.verificacion_resuelta.schema.json",
+  "title": "auth.prestador.verificacion_resuelta — v1",
+  "description": "Publica: Auth (David), desde su outbox, cuando un administrador resuelve una solicitud de verificación de prestador (CU-28). Es exactamente lo que ya escribe auth-service/src/auth_service/application/resolve_verification.py. Consume: Catálogo (Luis), que marca PerfilPrestador.verificado = (estado == 'aprobada'); solo un prestador verificado puede publicar ofertas (RF-USR-19).",
+  "type": "object",
+  "required": ["solicitud_id", "prestador_id", "estado", "justificacion"],
+  "properties": {
+    "solicitud_id": { "type": "string", "format": "uuid" },
+    "prestador_id": { "type": "string", "format": "uuid", "description": "Id del usuario prestador en Auth (el `sub` de su JWT)" },
+    "estado": { "type": "string", "enum": ["aprobada", "rechazada", "info_requerida"] },
+    "justificacion": { "type": "string", "description": "Justificación registrada por el administrador" }
+  },
+  "examples": [
+    {
+      "solicitud_id": "0b7d4f4e-6f1a-4c7e-9d3b-2f6d8a1c9e10",
+      "prestador_id": "8f14e45f-ceea-4e7a-9b1c-3d2a6b5c4e01",
+      "estado": "aprobada",
+      "justificacion": "RNT vigente y documentos completos."
+    }
+  ]
+}

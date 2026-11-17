@@ -51,6 +51,7 @@ class Settings(BaseSettings):
     # RabbitMQ (ADR-04): si está vacío, los eventos se quedan en la tabla outbox sin publicarse.
     RABBITMQ_URL: str = ""
     RABBITMQ_EXCHANGE: str = "turismo"
+    RABBITMQ_COLA_EVENTOS: str = "catalogo.eventos"  # eventos que consume Catálogo (api/eventos.py)
     OUTBOX_INTERVALO_SEGUNDOS: float = 2.0
     OUTBOX_LOTE: int = 50
 
