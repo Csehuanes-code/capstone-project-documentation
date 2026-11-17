@@ -5,6 +5,7 @@
 | `ia-openapi.json` | PWA, Gateway (Carlos) | API REST que expone IA. Abrir en https://editor.swagger.io |
 | `reservas-openapi.json` | PWA, Gateway | API REST de Reservas; generado desde `reservas.main:app`. |
 | `catalogo-condiciones.openapi.json` | Reservas, Catálogo | Contrato de la respuesta real de condiciones de oferta que consume Reservas. |
+| `analitica-openapi.json` | Gateway y administración | Borrador de API REST de Analítica (CU-30, CU-31) |
 | `vocabulario.json` | **Todos** | Ids compartidos de intereses/categorías y zonas |
 | `eventos/sobre-evento.schema.json` | **Todos** (Santiago: plantilla común) | Formato común de todo mensaje en RabbitMQ |
 | `eventos/catalogo.oferta.schema.json` | Luis publica | Estado completo de una oferta |

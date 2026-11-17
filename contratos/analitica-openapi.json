@@ -1,0 +1,62 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Servicio de Analítica y Sostenibilidad",
+    "version": "0.1.0",
+    "description": "Contrato inicial de CU-30 y CU-31. Los indicadores usan hechos de reservas confirmadas y la ocupación se etiqueta como estimada hasta que exista un evento de check-in."
+  },
+  "servers": [{"url": "http://localhost:8004"}],
+  "security": [{"BearerAuth": []}],
+  "paths": {
+    "/health": {"get": {"security": [], "summary": "Liveness", "responses": {"200": {"description": "Proceso activo"}}}},
+    "/health/ready": {"get": {"security": [], "summary": "Readiness de PostgreSQL", "responses": {"200": {"description": "Listo"}, "503": {"description": "Base no disponible"}}}},
+    "/api/v1/analitica/indicadores": {
+      "get": {
+        "summary": "Indicadores de demanda, concentración y ocupación estimada por zona",
+        "parameters": [
+          {"name": "desde", "in": "query", "required": true, "schema": {"type": "string", "format": "date"}},
+          {"name": "hasta", "in": "query", "required": true, "schema": {"type": "string", "format": "date"}},
+          {"name": "zona_id", "in": "query", "schema": {"type": "string", "enum": ["minca", "tayrona", "centro", "los-naranjos", "taganga", "rodadero"]}}
+        ],
+        "responses": {"200": {"description": "Indicadores", "content": {"application/json": {"schema": {"type": "array", "items": {"$ref": "#/components/schemas/IndicadorZona"}}}}}, "401": {"description": "Token inválido o ausente"}, "403": {"description": "Se requiere administrador"}, "422": {"description": "Rango inválido"}}
+      }
+    },
+    "/api/v1/analitica/indicadores.csv": {
+      "get": {
+        "summary": "Exporta el reporte de indicadores en CSV UTF-8",
+        "parameters": [
+          {"name": "desde", "in": "query", "required": true, "schema": {"type": "string", "format": "date"}},
+          {"name": "hasta", "in": "query", "required": true, "schema": {"type": "string", "format": "date"}},
+          {"name": "zona_id", "in": "query", "schema": {"type": "string"}}
+        ],
+        "responses": {"200": {"description": "CSV descargable", "content": {"text/csv": {"schema": {"type": "string"}}}}, "401": {"description": "No autenticado"}, "403": {"description": "Se requiere administrador"}}
+      }
+    },
+    "/api/v1/analitica/umbrales": {
+      "get": {"summary": "Lista umbrales por zona", "responses": {"200": {"description": "Umbrales"}, "401": {"description": "No autenticado"}, "403": {"description": "Se requiere administrador"}}},
+      "put": {
+        "summary": "Crea o actualiza el umbral de una zona",
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/UmbralEntrada"}}}},
+        "responses": {"200": {"description": "Configuración o advertencia histórica", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/UmbralRespuesta"}}}}, "401": {"description": "No autenticado"}, "403": {"description": "Se requiere administrador"}, "422": {"description": "Zona o umbral inválido"}}
+      }
+    },
+    "/api/v1/analitica/alertas": {"get": {"summary": "Lista alertas activas de capacidad", "responses": {"200": {"description": "Alertas activas"}, "401": {"description": "No autenticado"}, "403": {"description": "Se requiere administrador"}}}}
+  },
+  "components": {
+    "securitySchemes": {"BearerAuth": {"type": "http", "scheme": "bearer", "bearerFormat": "JWT"}},
+    "schemas": {
+      "UmbralEntrada": {
+        "type": "object", "additionalProperties": false,
+        "required": ["zona_id", "visitantes_maximos"],
+        "properties": {
+          "zona_id": {"type": "string", "enum": ["minca", "tayrona", "centro", "los-naranjos", "taganga", "rodadero"]},
+          "visitantes_maximos": {"type": "integer", "minimum": 1},
+          "periodo_dias": {"type": "integer", "minimum": 1, "maximum": 365, "default": 1},
+          "confirmar_advertencia": {"type": "boolean", "default": false}
+        }
+      },
+      "UmbralRespuesta": {"type": "object", "required": ["zona_id", "visitantes_maximos", "periodo_dias", "promedio_historico_30_dias", "advertir", "guardado"], "properties": {"zona_id": {"type": "string"}, "visitantes_maximos": {"type": "integer"}, "periodo_dias": {"type": "integer"}, "promedio_historico_30_dias": {"type": "number"}, "advertir": {"type": "boolean"}, "mensaje": {"type": ["string", "null"]}, "guardado": {"type": "boolean"}}},
+      "IndicadorZona": {"type": "object", "required": ["zona_id", "desde", "hasta", "reservas_confirmadas", "visitantes_reservados", "ingresos_cop", "concentracion", "cerca_del_umbral"], "properties": {"zona_id": {"type": "string"}, "desde": {"type": "string", "format": "date"}, "hasta": {"type": "string", "format": "date"}, "reservas_confirmadas": {"type": "integer"}, "visitantes_reservados": {"type": "integer"}, "ingresos_cop": {"type": "string"}, "concentracion": {"type": "number", "minimum": 0, "maximum": 1}, "umbral_visitantes": {"type": ["integer", "null"]}, "ocupacion_estimada": {"type": ["number", "null"], "minimum": 0}, "cerca_del_umbral": {"type": "boolean"}}}
+    }
+  }
+}

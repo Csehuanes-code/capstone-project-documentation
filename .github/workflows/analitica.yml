@@ -1,0 +1,46 @@
+name: CI servicio Analítica
+
+on:
+  push:
+    paths: ["microservices/analitica-service/**", "contratos/**", ".github/workflows/analitica.yml"]
+  pull_request:
+    paths: ["microservices/analitica-service/**", "contratos/**", ".github/workflows/analitica.yml"]
+
+defaults:
+  run:
+    working-directory: microservices/analitica-service
+
+jobs:
+  calidad:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: analitica_db
+          POSTGRES_USER: analitica
+          POSTGRES_PASSWORD: analitica
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U analitica -d analitica_db"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      ANALITICA_DATABASE_URL: postgresql+psycopg://analitica:analitica@localhost:5432/analitica_db
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: microservices/analitica-service/requirements.txt
+      - run: pip install -e ".[dev]"
+      - run: python -m compileall -q src migrations
+      - run: ruff check src migrations
+      - run: mypy src
+      - run: alembic upgrade head
+
+  imagen:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t servicio-analitica:ci microservices/analitica-service
