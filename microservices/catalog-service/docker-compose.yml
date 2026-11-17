@@ -40,7 +40,7 @@ services:
     ports:
       - "${PORT:-8002}:8000"   # 8002 en el PC (puertos del grupo: IA 8000, Auth 8001, Catálogo 8002, Reservas 8003)
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/ready')"]
       interval: 15s
       timeout: 5s
       retries: 3

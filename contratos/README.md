@@ -12,6 +12,7 @@
 | `eventos/reservas.reserva.confirmada.schema.json` | Santiago publica | Reserva confirmada (sin datos del turista) |
 | `eventos/reservas.cancelacion.pendiente.schema.json` | Reservas, administración | Reembolso de una cancelación que requiere gestión manual. |
 | `eventos/reservas.disputa.abierta.schema.json` | Reservas, administración | Disputa de cobro que queda en revisión. |
+| `eventos/auth.prestador.verificacion_resuelta.schema.json` | David publica, Luis consume | Decisión sobre la verificación de un prestador (CU-28) |
 
 Esta carpeta es la ÚNICA copia de los contratos: los servicios y sus pruebas la leen desde aquí
 (no copiarla dentro de cada servicio). Un cambio aquí vuelve a correr el CI de los servicios que

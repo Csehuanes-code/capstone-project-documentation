@@ -77,4 +77,5 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Construir imagen desde la raíz del monorepo
+        working-directory: .  # la imagen necesita comun/: el contexto es la raíz del repo
         run: docker build -f microservices/reservas-service/Dockerfile -t servicio-reservas:ci .
