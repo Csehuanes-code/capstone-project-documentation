@@ -4,6 +4,9 @@ import { api } from "../api";
 import { useIdioma } from "../idioma";
 import { Aviso } from "../ui";
 
+// Buzón de la demo: Mailpit en local (puerto 8025) o detrás del gateway en la nube (/correo/).
+const BUZON = location.hostname === "localhost" ? "http://localhost:8025" : "/correo/";
+
 export default function Registro() {
   const { t } = useIdioma();
   const [email, setEmail] = useState("");
@@ -42,7 +45,12 @@ export default function Registro() {
           <input type="checkbox" checked={consentimiento} onChange={(e) => setConsentimiento(e.target.checked)} />
           {t("consentimiento")}
         </label>
-        {estado && <Aviso tipo={estado.tipo}>{estado.texto}</Aviso>}
+        {estado && (
+          <Aviso tipo={estado.tipo}>
+            {estado.texto}
+            {estado.tipo === "ok" && <> <a href={BUZON} target="_blank" rel="noreferrer">{BUZON}</a></>}
+          </Aviso>
+        )}
         <button disabled={!consentimiento}>{t("registro")}</button>
         <Link to="/entrar">{t("entrar")}</Link>
       </form>
