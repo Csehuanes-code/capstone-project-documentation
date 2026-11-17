@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api, pesos, type Comprobante } from "../api";
+import { fotosDeOferta } from "../fotos";
 import { useIdioma } from "../idioma";
 import { useSesion } from "../sesion";
 import { Aviso, Estado, Insignia, tonoEstado, useCarga } from "../ui";
@@ -36,13 +37,23 @@ export default function ComprobantePagina() {
     <Estado carga={reserva}>
       {(r) => (
         <div className="columnas">
-          <section className="tarjeta pila">
-            <div className="fila entre">
-              <h1 style={{ margin: 0 }}>{t("comprobante")}</h1>
-              <Insignia tono={tonoEstado(r.estado)}>{r.estado}</Insignia>
+          <section className="tarjeta ticket">
+            <div className="ticket-foto">
+              <img src={fotosDeOferta({ nombre_es: r.nombre_oferta })[0]} alt="" />
+              <div>
+                <span className="sobretitulo" style={{ color: "var(--sol-claro)" }}>{t("comprobante")}</span>
+                <h1>{r.nombre_oferta}</h1>
+              </div>
             </div>
-            <div className="codigo">{r.codigo}</div>
-            <p>{idioma === "en" ? r.mensaje_en : r.mensaje_es}</p>
+            <div className="ticket-cuerpo">
+              <div className="fila entre">
+                <div className="codigo">{r.codigo}</div>
+                <Insignia tono={tonoEstado(r.estado)}>{r.estado}</Insignia>
+              </div>
+              <p style={{ margin: 0 }}>{idioma === "en" ? r.mensaje_en : r.mensaje_es}</p>
+            </div>
+            <div className="ticket-corte" />
+            <div className="ticket-cuerpo">
             <table>
               <tbody>
                 <tr><th>Experiencia</th><td><Link to={`/ofertas/${r.oferta_id}`}>{r.nombre_oferta}</Link></td></tr>
@@ -55,6 +66,7 @@ export default function ComprobantePagina() {
                 <tr><th>{t("politica")}</th><td>{idioma === "en" ? r.politica_cancelacion.descripcion_en : r.politica_cancelacion.descripcion_es}</td></tr>
               </tbody>
             </table>
+            </div>
           </section>
 
           {esTurista && (
