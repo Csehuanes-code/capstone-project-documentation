@@ -14,8 +14,8 @@ export default defineConfig({
         short_name: "SierraMar",
         description: "Reserva experiencias de turismo sostenible en Santa Marta",
         lang: "es",
-        theme_color: "#0b6e6e",
-        background_color: "#f6f3ee",
+        theme_color: "#0b2531",
+        background_color: "#f3f6f5",
         display: "standalone",
         start_url: "/",
         icons: [{ src: "/icono.svg", sizes: "any", type: "image/svg+xml", purpose: "any maskable" }],
@@ -24,7 +24,15 @@ export default defineConfig({
         // La API nunca se cachea: reservas y cupos deben ser siempre los reales.
         // /correo es el buzón de la demo (Mailpit) detrás del gateway: no lo atiende la PWA.
         navigateFallbackDenylist: [/^\/api\//, /^\/\.well-known\//, /^\/correo/],
-        runtimeCaching: [{ urlPattern: /^\/api\//, handler: "NetworkOnly" }],
+        runtimeCaching: [
+          { urlPattern: ({ url }) => url.pathname.startsWith("/api/"), handler: "NetworkOnly" },
+          // Fotos de destinos: se guardan al verlas por primera vez (la app sigue luciendo bien sin conexión).
+          {
+            urlPattern: ({ url }) => url.pathname.startsWith("/fotos/"),
+            handler: "CacheFirst",
+            options: { cacheName: "fotos", expiration: { maxEntries: 40 } },
+          },
+        ],
       },
     }),
   ],

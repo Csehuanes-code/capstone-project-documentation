@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { api, pesos, type Comprobante, type EntradaListaEspera } from "../api";
+import { fotosDeOferta } from "../fotos";
 import { useIdioma } from "../idioma";
 import { useSesion } from "../sesion";
 import { Aviso, Estado, Insignia, tonoEstado, useCarga } from "../ui";
@@ -48,10 +49,14 @@ export default function MisReservas() {
         {(rs) => rs.length === 0 ? <Aviso>{t("vacio")} <Link to="/">{t("explorar")}</Link></Aviso> : (
           <div className="rejilla">
             {rs.map((r) => (
-              <Link key={r.reserva_id} to={`/reservas/${r.reserva_id}`} className="tarjeta pila" style={{ textDecoration: "none", color: "inherit" }}>
-                <div className="fila entre"><strong>{r.nombre_oferta}</strong><Insignia tono={tonoEstado(r.estado)}>{r.estado}</Insignia></div>
-                <span className="tenue">{r.codigo} · {r.fecha_servicio} {r.hora_servicio} · {r.personas} pers.</span>
-                <strong>{pesos(r.total, r.moneda)}</strong>
+              <Link key={r.reserva_id} to={`/reservas/${r.reserva_id}`} className="tarjeta reserva-mini">
+                <img src={fotosDeOferta({ nombre_es: r.nombre_oferta })[0]} alt="" loading="lazy" />
+                <div>
+                  <Insignia tono={tonoEstado(r.estado)}>{r.estado}</Insignia>
+                  <strong style={{ fontFamily: "var(--titulos)", fontSize: "1.08rem" }}>{r.nombre_oferta}</strong>
+                  <span className="tenue" style={{ fontSize: ".86rem" }}>{r.codigo} · {r.fecha_servicio} {r.hora_servicio.slice(0, 5)} · {r.personas} pers.</span>
+                  <strong>{pesos(r.total, r.moneda)}</strong>
+                </div>
               </Link>
             ))}
           </div>
