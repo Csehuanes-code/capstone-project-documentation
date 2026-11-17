@@ -1,6 +1,7 @@
 import { useMemo, useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api, ApiError, pesos, type Comprobante, type DetalleOferta, type Franja } from "../api";
+import { Portada } from "../ilustraciones";
 import { useIdioma } from "../idioma";
 import { useSesion } from "../sesion";
 import { Aviso, Estado, Insignia, useCarga } from "../ui";
@@ -82,6 +83,7 @@ export default function DetalleOfertaPagina() {
           <div className="columnas">
             <section className="pila">
               <Link to="/" className="tenue">← {t("explorar")}</Link>
+              <div className="detalle-portada"><Portada categoria={o.atributos.categorias?.[0]} alto={280} /></div>
               <h1>{idioma === "en" ? o.nombre_en : o.nombre_es}</h1>
               <div className="fila">
                 {d.zona && <Insignia>{idioma === "en" ? d.zona.nombre_en : d.zona.nombre_es}</Insignia>}

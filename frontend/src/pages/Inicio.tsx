@@ -1,12 +1,24 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { api, INTERESES, type ItemRecomendado, type Oferta, type Recomendacion, type Zona } from "../api";
+import { api, INTERESES, pesos, type DetalleOferta, type ItemRecomendado, type Oferta, type Recomendacion, type Zona } from "../api";
+import { Paisaje, Portada } from "../ilustraciones";
 import { useIdioma } from "../idioma";
 import { Aviso, Estado, Insignia, useCarga } from "../ui";
 
 const NIVEL: Record<string, "ok" | "alerta" | "peligro" | "neutro"> = {
   tranquila: "ok", moderada: "alerta", muy_concurrida: "peligro", desconocida: "neutro",
 };
+const NIVEL_TEXTO: Record<string, [string, string]> = {
+  tranquila: ["Zona tranquila", "Quiet area"],
+  moderada: ["Aforo moderado", "Moderate crowds"],
+  muy_concurrida: ["Zona saturada", "Crowded area"],
+};
+const CATEGORIA_EN: Record<string, string> = {
+  naturaleza: "nature", cultura: "culture", gastronomia: "food", historia: "history", playa: "beach", aventura: "adventure",
+};
+
+interface Popular { oferta_id: string; zona: { nivel: string; ocupacion: number | null }; reservas_confirmadas: number }
+interface OfertaEnriquecida extends Oferta { desde: number | null; moneda: string }
 
 function TarjetaRecomendada({ item }: { item: ItemRecomendado }) {
   const { t } = useIdioma();
@@ -44,43 +56,114 @@ function TarjetaRecomendada({ item }: { item: ItemRecomendado }) {
   );
 }
 
+function TarjetaOferta({ o, zona, aforo }: { o: OfertaEnriquecida; zona?: Zona; aforo?: Popular }) {
+  const { t, idioma } = useIdioma();
+  const en = idioma === "en";
+  const categoria = o.atributos.categorias?.[0];
+  const nivel = aforo?.zona.nivel;
+  return (
+    <Link to={`/ofertas/${o.id}`} className="tarjeta oferta" style={{ textDecoration: "none", color: "inherit" }}>
+      <div className="oferta-imagen">
+        <Portada categoria={categoria} alto={190} />
+        <div className="etiquetas">
+          {categoria && <span>{en ? CATEGORIA_EN[categoria] ?? categoria : categoria}</span>}
+          <span className="estrella">★ {o.total_calificaciones ? o.calificacion_promedio.toFixed(1) : (en ? "New" : "Nuevo")}</span>
+        </div>
+        {nivel && NIVEL_TEXTO[nivel] && (
+          <span className="aforo"><Insignia tono={NIVEL[nivel]}>{NIVEL_TEXTO[nivel][en ? 1 : 0]}</Insignia></span>
+        )}
+      </div>
+      <div className="oferta-cuerpo">
+        <span className="verificado">
+          ✓ {en ? "Verified operator" : "Prestador verificado"}{zona && <span className="tenue"> · {en ? zona.nombre_en : zona.nombre_es}</span>}
+        </span>
+        <h3>{en ? o.nombre_en : o.nombre_es}</h3>
+        <p className="tenue" style={{ margin: 0 }}>{en ? o.descripcion_en : o.descripcion_es}</p>
+        <div className="oferta-pie">
+          <div>
+            <div className="tarifa-etq">{en ? "From" : "Desde"}</div>
+            <div className="tarifa">{o.desde != null ? pesos(o.desde, o.moneda) : "—"}</div>
+            <small className="tenue">{t("porPersona")}</small>
+          </div>
+          <span className="boton">{t("verDetalle")}</span>
+        </div>
+      </div>
+    </Link>
+  );
+}
+
 export default function Inicio() {
   const { t, idioma } = useIdioma();
+  const en = idioma === "en";
   const [intereses, setIntereses] = useState<string[]>(["naturaleza"]);
-  const [zona, setZona] = useState("");
   const [categoria, setCategoria] = useState("");
+  const [texto, setTexto] = useState("");
+  const [busqueda, setBusqueda] = useState("");
 
   const zonas = useCarga(() => api<Zona[]>("/api/v1/catalogo/zonas"));
+  const aforos = useCarga(() => api<Popular[]>("/api/v1/ia/populares", { query: { limite: 20 } }).catch(() => [] as Popular[])); // 20 = máximo que acepta IA
   const recomendacion = useCarga(
     () => api<Recomendacion>("/api/v1/ia/recomendaciones", { query: { intereses: intereses.join(","), limite: 6, idioma } }),
     [intereses.join(","), idioma],
   );
-  const catalogo = useCarga(
-    () => api<{ items: Oferta[]; total: number }>("/api/v1/catalogo/ofertas", {
-      query: { zona_codigo: zona, categoria, limit: 50, idioma },
-    }),
-    [zona, categoria, idioma],
-  );
-  const nombreZona = (id: string) => {
-    const z = zonas.datos?.find((x) => x.id === id);
-    return z ? (idioma === "en" ? z.nombre_en : z.nombre_es) : "";
-  };
-  const alternar = (i: string) =>
-    setIntereses((act) => (act.includes(i) ? act.filter((x) => x !== i) : [...act, i]));
+  // El catálogo no trae la tarifa en el listado: se completa con el detalle de cada oferta.
+  const catalogo = useCarga(async () => {
+    const r = await api<{ items: Oferta[]; total: number }>("/api/v1/catalogo/ofertas", { query: { categoria, limit: 50, idioma } });
+    return Promise.all(r.items.map(async (o): Promise<OfertaEnriquecida> => {
+      try {
+        const d = await api<DetalleOferta>(`/api/v1/catalogo/ofertas/${o.id}`);
+        const precios = d.tarifas.map((x) => Number(x.precio_por_persona));
+        return { ...o, desde: precios.length ? Math.min(...precios) : null, moneda: d.tarifas[0]?.moneda ?? "COP" };
+      } catch {
+        return { ...o, desde: null, moneda: "COP" };
+      }
+    }));
+  }, [categoria, idioma]);
+
+  const visibles = useMemo(() => {
+    const q = busqueda.trim().toLowerCase();
+    return (catalogo.datos ?? []).filter((o) =>
+      !q || [o.nombre_es, o.nombre_en, o.descripcion_es, o.descripcion_en].join(" ").toLowerCase().includes(q));
+  }, [catalogo.datos, busqueda]);
+
+  const zonaPorId = (id: string) => zonas.datos?.find((z) => z.id === id);
+  const aforoDe = (id: string) => aforos.datos?.find((a) => a.oferta_id === id);
+  const alternar = (i: string) => setIntereses((act) => (act.includes(i) ? act.filter((x) => x !== i) : [...act, i]));
+  const reservasTotales = (aforos.datos ?? []).reduce((s, a) => s + a.reservas_confirmadas, 0);
 
   return (
     <>
       <section className="heroe">
-        <h1>{t("lema")}</h1>
-        <p>{t("subtitulo")}</p>
+        <Paisaje />
+        <div className="heroe-contenido">
+          <span className="pildora">● {en ? "Sustainable tourism · Santa Marta" : "Turismo sostenible · Santa Marta"}</span>
+          <h1>{en ? "Where the Sierra Nevada meets the Caribbean" : "Donde la Sierra Nevada se encuentra con el Caribe"}</h1>
+          <p>{t("subtitulo")}</p>
+          <form className="buscador" onSubmit={(e) => { e.preventDefault(); setBusqueda(texto);
+            document.getElementById("catalogo")?.scrollIntoView({ behavior: "smooth" }); }}>
+            <label>{en ? "What are you looking for?" : "¿Qué buscas?"}
+              <input value={texto} onChange={(e) => setTexto(e.target.value)}
+                placeholder={en ? "Hike, diving, cooking…" : "Caminata, buceo, cocina…"} />
+            </label>
+            <button className="boton-grande">{en ? "Discover" : "Descubrir"}</button>
+          </form>
+          <div className="cifras">
+            <div><b>{catalogo.datos?.length ?? "—"}</b>{en ? "experiences" : "experiencias"}</div>
+            <div><b>{zonas.datos?.length ?? "—"}</b>{en ? "areas" : "zonas"}</div>
+            <div><b>{reservasTotales}</b>{en ? "confirmed bookings" : "reservas confirmadas"}</div>
+          </div>
+        </div>
       </section>
 
-      <section>
+      <section className="ia">
+        <span className="sobretitulo">{en ? "Explainable AI" : "IA explicable"}</span>
         <h2>{t("paraTi")}</h2>
-        <p className="tenue">{t("intereses")}</p>
-        <div className="chips" style={{ marginBottom: "1rem" }}>
+        <p style={{ opacity: .85, marginTop: 0 }}>{t("intereses")}</p>
+        <div className="chips" style={{ marginBottom: "1.2rem" }}>
           {INTERESES.map((i) => (
-            <button key={i} className="chip" aria-pressed={intereses.includes(i)} onClick={() => alternar(i)}>{i}</button>
+            <button key={i} className="chip" aria-pressed={intereses.includes(i)} onClick={() => alternar(i)}>
+              {en ? CATEGORIA_EN[i] : i}
+            </button>
           ))}
         </div>
         <Estado carga={recomendacion}>
@@ -90,35 +173,30 @@ export default function Inicio() {
         </Estado>
       </section>
 
-      <section>
-        <h2>{t("catalogo")}</h2>
-        <div className="fila" style={{ marginBottom: "1rem" }}>
-          <select value={zona} onChange={(e) => setZona(e.target.value)} aria-label={t("zona")}>
-            <option value="">{t("todasZonas")}</option>
-            {zonas.datos?.map((z) => <option key={z.id} value={z.codigo}>{idioma === "en" ? z.nombre_en : z.nombre_es}</option>)}
-          </select>
-          <select value={categoria} onChange={(e) => setCategoria(e.target.value)} aria-label="Categoría">
-            <option value="">{t("todasCategorias")}</option>
-            {INTERESES.map((i) => <option key={i} value={i}>{i}</option>)}
-          </select>
+      <section id="catalogo">
+        <div className="encabezado-seccion">
+          <div>
+            <span className="sobretitulo">{en ? "Authentic experiences" : "Turismo vivencial auténtico"}</span>
+            <h2>{en ? "Experience explorer" : "Explorador de experiencias"}</h2>
+            <p className="tenue" style={{ margin: ".4rem 0 0", maxWidth: 560 }}>
+              {en ? "Every service is published by an operator verified with the National Tourism Registry."
+                : "Cada servicio lo publica un prestador verificado con el Registro Nacional de Turismo."}
+            </p>
+          </div>
+          {busqueda && <button className="boton-texto" onClick={() => { setBusqueda(""); setTexto(""); }}>✕ «{busqueda}»</button>}
+        </div>
+        <div className="chips" style={{ marginBottom: "1.4rem" }}>
+          <button className="chip" aria-pressed={categoria === ""} onClick={() => setCategoria("")}>{en ? "All" : "Todas"}</button>
+          {INTERESES.map((i) => (
+            <button key={i} className="chip" aria-pressed={categoria === i} onClick={() => setCategoria(i)}>
+              {en ? CATEGORIA_EN[i] : i}
+            </button>
+          ))}
         </div>
         <Estado carga={catalogo}>
-          {(c) => c.items.length === 0 ? <Aviso>{t("vacio")}</Aviso> : (
+          {() => visibles.length === 0 ? <Aviso>{t("vacio")}</Aviso> : (
             <div className="rejilla">
-              {c.items.map((o) => (
-                <article key={o.id} className="tarjeta pila">
-                  <h3 style={{ margin: 0 }}>{idioma === "en" ? o.nombre_en : o.nombre_es}</h3>
-                  <div className="fila">
-                    <Insignia>{nombreZona(o.zona_id)}</Insignia>
-                    {(o.atributos.categorias ?? []).map((cat) => <Insignia key={cat}>{cat}</Insignia>)}
-                  </div>
-                  <p className="tenue" style={{ margin: 0 }}>{idioma === "en" ? o.descripcion_en : o.descripcion_es}</p>
-                  <div className="fila entre">
-                    <span>★ {o.calificacion_promedio.toFixed(1)} <small className="tenue">({o.total_calificaciones})</small></span>
-                    <Link className="boton-secundario" to={`/ofertas/${o.id}`}>{t("verDetalle")}</Link>
-                  </div>
-                </article>
-              ))}
+              {visibles.map((o) => <TarjetaOferta key={o.id} o={o} zona={zonaPorId(o.zona_id)} aforo={aforoDe(o.id)} />)}
             </div>
           )}
         </Estado>
