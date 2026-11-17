@@ -77,6 +77,7 @@ jobs:
           DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/catalogo_db
         run: |
           alembic upgrade head
+          alembic check  # la migración debe producir exactamente los modelos
 
       - name: Run unit, API, contract and integration tests with pytest
         env:

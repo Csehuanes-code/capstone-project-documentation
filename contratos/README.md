@@ -8,6 +8,7 @@
 | `eventos/catalogo.oferta.schema.json` | Luis publica | Estado completo de una oferta |
 | `eventos/analitica.zona.ocupacion_actualizada.schema.json` | Carlos publica | Ocupación de una zona |
 | `eventos/reservas.reserva.confirmada.schema.json` | Santiago publica | Reserva confirmada (sin datos del turista) |
+| `eventos/auth.prestador.verificacion_resuelta.schema.json` | David publica, Luis consume | Decisión sobre la verificación de un prestador (CU-28) |
 
 Esta carpeta es la ÚNICA copia de los contratos: los servicios y sus pruebas la leen desde aquí
 (no copiarla dentro de cada servicio). Un cambio aquí vuelve a correr el CI de IA y de Catálogo.
