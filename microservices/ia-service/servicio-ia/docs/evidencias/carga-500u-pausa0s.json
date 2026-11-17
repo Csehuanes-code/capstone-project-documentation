@@ -1,0 +1,43 @@
+{
+  "fecha": "2026-11-16T18:42:55+00:00",
+  "url": "http://ia:8000",
+  "usuarios_simultaneos": 500,
+  "pausa_media_s": 0,
+  "peticiones_por_usuario": 4,
+  "peticiones_totales": 2000,
+  "duracion_s": 14.4,
+  "peticiones_por_segundo": 138.6,
+  "errores": 0,
+  "tasa_error_pct": 0.0,
+  "general": {
+    "endpoint": "todas",
+    "peticiones": 2000,
+    "p50_ms": 2769.8,
+    "p95_ms": 5823.2,
+    "p99_ms": 5902.4,
+    "max_ms": 5946.7,
+    "promedio_ms": 2986.8
+  },
+  "por_endpoint": [
+    {
+      "endpoint": "recomendaciones",
+      "peticiones": 1000,
+      "p50_ms": 3098.3,
+      "p95_ms": 5857.9,
+      "p99_ms": 5912.8,
+      "max_ms": 5946.7,
+      "promedio_ms": 3600.9
+    },
+    {
+      "endpoint": "por_que_veo_esto",
+      "peticiones": 1000,
+      "p50_ms": 1931.0,
+      "p95_ms": 3579.1,
+      "p99_ms": 3745.7,
+      "max_ms": 4837.4,
+      "promedio_ms": 2372.7
+    }
+  ],
+  "meta_p95_ms": 800,
+  "cumple_meta": false
+}

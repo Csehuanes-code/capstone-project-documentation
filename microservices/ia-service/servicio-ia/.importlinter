@@ -1,0 +1,27 @@
+[importlinter]
+root_package = ia
+include_external_packages = True
+
+[importlinter:contract:capas]
+name = Clean Architecture: las dependencias solo apuntan hacia el dominio
+type = layers
+layers =
+    ia.main
+    ia.api | ia.infraestructura
+    ia.aplicacion
+    ia.dominio
+
+[importlinter:contract:nucleo-sin-frameworks]
+name = dominio y aplicacion no usan frameworks web ni de persistencia
+type = forbidden
+source_modules =
+    ia.dominio
+    ia.aplicacion
+forbidden_modules =
+    fastapi
+    starlette
+    pydantic
+    sqlalchemy
+    psycopg
+    uvicorn
+    pika

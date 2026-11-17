@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "contratos/eventos/reservas.reserva.confirmada.schema.json",
+  "title": "reservas.reserva.confirmada — v1",
+  "description": "Publica: Reservas (Santiago), desde el outbox en la misma transacción que confirma la reserva. Consumen: IA (popularidad: solo usa oferta_id) y Analítica (hecho_reserva). Sin datos personales del turista (minimización, RD-04). Campos distintos de oferta_id: PROPUESTA, Santiago y Carlos los ajustan según lo que necesite Analítica.",
+  "type": "object",
+  "required": ["reserva_id", "oferta_id", "zona_id", "personas", "fecha_servicio", "total", "moneda"],
+  "properties": {
+    "reserva_id": { "type": "string" },
+    "oferta_id": { "type": "string" },
+    "zona_id": { "type": "string", "description": "Copiado de la oferta al reservar; evita que Analítica consulte a Catálogo" },
+    "personas": { "type": "integer", "minimum": 1 },
+    "fecha_servicio": { "type": "string", "format": "date" },
+    "total": { "type": "number", "minimum": 0 },
+    "moneda": { "type": "string", "const": "COP" }
+  },
+  "examples": [
+    { "reserva_id": "SMT-7K3Q9P", "oferta_id": "minca-cascadas", "zona_id": "minca", "personas": 2, "fecha_servicio": "2026-12-15", "total": 240000, "moneda": "COP" }
+  ]
+}

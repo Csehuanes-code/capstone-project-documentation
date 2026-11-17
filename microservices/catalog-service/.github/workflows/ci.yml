@@ -1,0 +1,65 @@
+name: Catalog Service CI
+
+on:
+  push:
+    branches: [main, master, develop]
+  pull_request:
+    branches: [main, master, develop]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: catalogo_db
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install .[dev]
+
+      - name: Lint with ruff
+        run: |
+          ruff check catalog_service tests
+
+      - name: Type check with mypy
+        run: |
+          mypy catalog_service
+
+      - name: Verify Clean Architecture boundaries with import-linter
+        run: |
+          lint-imports --config .importlinter
+
+      - name: Run migrations with Alembic
+        env:
+          DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/catalogo_db
+        run: |
+          alembic upgrade head
+
+      - name: Run unit, API, and contract tests with pytest
+        env:
+          DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/catalogo_db
+          ENVIRONMENT: test
+        run: |
+          pytest --cov=catalog_service --cov-report=term-missing --cov-report=xml --cov-fail-under=70

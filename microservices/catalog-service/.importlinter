@@ -1,0 +1,25 @@
+[importlinter]
+root_package = catalog_service
+include_external_packages = True
+
+[importlinter:contract:clean-architecture-layers]
+name = Clean Architecture 4-Layer Hierarchy
+type = layers
+layers =
+    catalog_service.api
+    catalog_service.infrastructure
+    catalog_service.application
+    catalog_service.domain
+
+[importlinter:contract:domain-isolation]
+name = Domain Layer Pure Independence
+type = forbidden
+source_modules =
+    catalog_service.domain
+forbidden_modules =
+    catalog_service.application
+    catalog_service.api
+    catalog_service.infrastructure
+    fastapi
+    sqlalchemy
+    pydantic

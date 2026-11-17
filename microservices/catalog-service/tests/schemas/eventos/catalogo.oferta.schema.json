@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "contratos/eventos/catalogo.oferta.schema.json",
+  "title": "catalogo.oferta.publicada | catalogo.oferta.actualizada | catalogo.oferta.retirada — v1",
+  "description": "Publica: Catálogo (Luis). Consume: IA (proyeccion_oferta). Se envía el estado COMPLETO de la oferta (no solo lo que cambió), para que el consumidor pueda reemplazar su copia. 'retirada' = mismo cuerpo con activa=false. También debe enviarse cuando cambie la calificación promedio por una reseña nueva.",
+  "type": "object",
+  "required": ["oferta_id", "nombre", "zona_id", "categorias", "calificacion_promedio", "numero_resenas", "indice_sostenibilidad", "prestador_id", "activa"],
+  "properties": {
+    "oferta_id": { "type": "string" },
+    "nombre": { "type": "string" },
+    "zona_id": { "type": "string", "description": "Valor del vocabulario compartido (vocabulario.json → zonas)" },
+    "categorias": {
+      "type": "array", "minItems": 1, "uniqueItems": true,
+      "items": { "type": "string", "description": "Valores del vocabulario compartido (vocabulario.json → intereses)" }
+    },
+    "calificacion_promedio": { "type": "number", "minimum": 0, "maximum": 5 },
+    "numero_resenas": { "type": "integer", "minimum": 0 },
+    "indice_sostenibilidad": { "type": "number", "minimum": 0, "maximum": 1, "description": "PENDIENTE: definir quién y cómo lo calcula (propuesta: Catálogo, a partir de prácticas declaradas por el prestador)" },
+    "prestador_id": { "type": "string" },
+    "activa": { "type": "boolean" }
+  },
+  "examples": [
+    {
+      "oferta_id": "minca-cascadas",
+      "nombre": "Tour cascadas de Minca",
+      "zona_id": "minca",
+      "categorias": ["naturaleza", "aventura"],
+      "calificacion_promedio": 4.7,
+      "numero_resenas": 32,
+      "indice_sostenibilidad": 1.0,
+      "prestador_id": "prest-guias-sierra-viva",
+      "activa": true
+    }
+  ]
+}

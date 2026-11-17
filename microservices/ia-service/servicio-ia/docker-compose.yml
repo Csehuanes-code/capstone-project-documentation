@@ -1,0 +1,57 @@
+# Entorno local: servicio IA + PostgreSQL 16 (como en producción, ADR-08) + RabbitMQ (ADR-04).
+#   docker compose up --build
+#   http://localhost:8000/docs
+#   http://localhost:15672  panel de RabbitMQ (guest / guest): colas ia.eventos e ia.eventos.errores
+# Las credenciales son solo para desarrollo local.
+# En el compose general del grupo, RabbitMQ es uno solo compartido por los 5 servicios:
+# allí se quita el servicio `rabbitmq` de aquí y IA_RABBITMQ_URL apunta al compartido.
+
+services:
+  ia_db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ia_db
+      POSTGRES_USER: ia
+      POSTGRES_PASSWORD: ia_local_dev
+    ports:
+      - "5433:5432"   # 5433 en tu PC, para no chocar con otro PostgreSQL
+    volumes:
+      - ia_db_datos:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ia -d ia_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  ia:
+    build: .
+    environment:
+      IA_DATABASE_URL: postgresql+psycopg://ia:ia_local_dev@ia_db:5432/ia_db
+      IA_MIGRAR_AL_INICIAR: "1"
+      IA_SEMBRAR_DATOS_PRUEBA: "1"
+      IA_RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/%2F
+      IA_WORKERS: "2"       # igual que una VM de producción (2 vCPU)
+    cpus: 2                 # limita el contenedor a 2 CPU para que la prueba de carga sea realista
+    ports:
+      - "8000:8000"
+    depends_on:
+      ia_db:
+        condition: service_healthy
+      # Sin condición de salud a propósito: IA arranca aunque RabbitMQ tarde, y el consumidor
+      # se conecta solo cuando esté disponible.
+      rabbitmq:
+        condition: service_started
+
+volumes:
+  ia_db_datos:

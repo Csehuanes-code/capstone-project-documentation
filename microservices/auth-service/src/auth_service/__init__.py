@@ -1,0 +1,1 @@
+"""Microservicio Auth (borrador independiente)."""
