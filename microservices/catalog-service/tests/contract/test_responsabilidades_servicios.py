@@ -7,7 +7,7 @@ from pathlib import Path
 
 import jsonschema
 
-SCHEMAS_DIR = Path(__file__).parent.parent / "schemas"
+SCHEMAS_DIR = Path(__file__).resolve().parents[4] / "contratos"
 
 
 def test_contrato_reservas_confirmada_pertenece_a_reservas() -> None:

@@ -29,10 +29,16 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@catalog-db:5432/${POSTGRES_DB:-catalogo_db}
       ENVIRONMENT: ${ENVIRONMENT:-production}
-      RESERVAS_SERVICE_URL: ${RESERVAS_SERVICE_URL:-http://reservas-service:8000}
-      JWT_SECRET: ${JWT_SECRET:-insecure-default-change-me}
+      RESERVAS_SERVICE_URL: ${RESERVAS_SERVICE_URL:-http://reservas-service:8003}
+      # JWT de Auth (ADR-06): clave pública de Auth o su endpoint /jwks. Ver .env.example.
+      JWT_PUBLIC_KEY_FILE: ${JWT_PUBLIC_KEY_FILE:-}
+      JWT_JWKS_URL: ${JWT_JWKS_URL:-}
+      JWT_ISSUER: ${JWT_ISSUER:-http://localhost:8001}
+      JWT_AUDIENCE: ${JWT_AUDIENCE:-santa-marta-platform}
+      # RabbitMQ compartido del grupo; vacío = los eventos esperan en la tabla outbox.
+      RABBITMQ_URL: ${RABBITMQ_URL:-}
     ports:
-      - "${PORT:-8001}:8000"
+      - "${PORT:-8002}:8000"   # 8002 en el PC (puertos del grupo: IA 8000, Auth 8001, Catálogo 8002, Reservas 8003)
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 15s

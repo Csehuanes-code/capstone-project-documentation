@@ -11,6 +11,7 @@ from httpx import AsyncClient
 
 from catalog_service.domain.entities import Oferta, Tarifa
 from catalog_service.domain.value_objects import EstadoOferta, Temporada
+from tests.auth_util import cabeceras
 
 
 @pytest.mark.asyncio
@@ -129,10 +130,7 @@ async def test_crear_oferta_prestador_verificado_api(
     z = fake_repos["zona_minca"]
     t = fake_repos["tipo_tour"]
 
-    headers = {
-        "X-User-Id": str(p.prestador_id),
-        "X-User-Role": "prestador",
-    }
+    headers = cabeceras(str(p.prestador_id), "prestador")
     payload = {
         "tipo_servicio_id": str(t.id),
         "zona_id": str(z.id),
@@ -156,10 +154,7 @@ async def test_crear_oferta_con_categoria_no_canonica_rechazado_400(
     z = fake_repos["zona_minca"]
     t = fake_repos["tipo_tour"]
 
-    headers = {
-        "X-User-Id": str(p.prestador_id),
-        "X-User-Role": "prestador",
-    }
+    headers = cabeceras(str(p.prestador_id), "prestador")
     payload = {
         "tipo_servicio_id": str(t.id),
         "zona_id": str(z.id),

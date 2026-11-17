@@ -7,7 +7,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-COPY pyproject.toml .
+# hatchling necesita el README (readme del pyproject) y el paquete para instalar.
+COPY pyproject.toml README.md ./
+COPY catalog_service ./catalog_service
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir .
 

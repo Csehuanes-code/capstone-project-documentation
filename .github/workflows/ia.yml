@@ -4,7 +4,20 @@ name: CI servicio IA
 
 on:
   push:
+    paths:
+      - "microservices/ia-service/**"
+      - ".github/workflows/ia.yml"
+      - "contratos/**"
   pull_request:
+    paths:
+      - "microservices/ia-service/**"
+      - ".github/workflows/ia.yml"
+      - "contratos/**"
+
+# Los comandos corren dentro de la carpeta del servicio (monorepo).
+defaults:
+  run:
+    working-directory: microservices/ia-service
 
 jobs:
   pruebas:
@@ -42,7 +55,7 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-          cache-dependency-path: requirements*.txt
+          cache-dependency-path: microservices/ia-service/requirements*.txt
 
       - name: Instalar dependencias
         run: pip install -r requirements-dev.txt

@@ -9,6 +9,7 @@ from httpx import AsyncClient
 
 from catalog_service.domain.entities import Oferta
 from catalog_service.domain.value_objects import EstadoOferta
+from tests.auth_util import cabeceras
 
 
 @pytest.mark.asyncio
@@ -31,7 +32,7 @@ async def test_favoritos_flujo_completo(
     await fake_repos["oferta_repo"].save(oferta)
 
     turista_id = uuid4()
-    headers = {"X-User-Id": str(turista_id), "X-User-Role": "turista"}
+    headers = cabeceras(str(turista_id), "turista")
 
     # 1. Add favorite
     resp_add = await async_client.post(f"/api/v1/catalogo/favoritos/{oferta.id}", headers=headers)
@@ -82,7 +83,7 @@ async def test_itinerarios_con_advertencia_solapamiento(
     await fake_repos["oferta_repo"].save(of2)
 
     turista_id = uuid4()
-    headers = {"X-User-Id": str(turista_id), "X-User-Role": "turista"}
+    headers = cabeceras(str(turista_id), "turista")
 
     # 1. Create itinerary
     resp_it = await async_client.post(
@@ -137,7 +138,7 @@ async def test_sincronizacion_lote_202_accepted(
     """Tests CU-23 & ADR-04 §4.4: POST /api/v1/catalogo/lotes responds 202 Accepted with lote_id."""
     p = fake_repos["prestador_verificado"]
     fuente_id = uuid4()
-    headers = {"X-User-Id": str(p.prestador_id), "X-User-Role": "prestador"}
+    headers = cabeceras(str(p.prestador_id), "prestador")
 
     payload = {
         "fuente_id": str(fuente_id),

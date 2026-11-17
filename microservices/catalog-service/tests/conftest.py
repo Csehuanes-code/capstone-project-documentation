@@ -34,10 +34,13 @@ from catalog_service.infrastructure.memory_repositories import (
     InMemoryZonaRepository,
 )
 from catalog_service.infrastructure.reservas_client import MockReservasClient
+from tests.auth_util import configurar_servicio
 
 # Configure settings for test
 settings.ENVIRONMENT = "test"
 settings.USE_IN_MEMORY_REPO = True
+settings.RABBITMQ_URL = ""
+configurar_servicio()  # valida JWT con la clave pública de prueba de tests/auth_util.py
 
 
 @pytest.fixture

@@ -24,11 +24,11 @@ services:
       AUTH_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-auth}:${POSTGRES_PASSWORD:?Define POSTGRES_PASSWORD en .env}@auth-db:5432/${POSTGRES_DB:-auth_db}
       AUTH_JWT_PRIVATE_KEY_FILE: /run/secrets/auth-es256.pem
       AUTH_JWT_KID: ${AUTH_JWT_KID:-auth-local-1}
-      AUTH_JWT_ISSUER: ${AUTH_JWT_ISSUER:-http://localhost:8000}
+      AUTH_JWT_ISSUER: ${AUTH_JWT_ISSUER:-http://localhost:8001}
       AUTH_JWT_AUDIENCE: ${AUTH_JWT_AUDIENCE:-santa-marta-platform}
       AUTH_LOGIN_LOCKOUT_SECONDS: ${AUTH_LOGIN_LOCKOUT_SECONDS:-300}
     ports:
-      - "${AUTH_API_PORT:-8000}:8000"
+      - "${AUTH_API_PORT:-8001}:8000"   # 8001 en el PC (puertos del grupo: IA 8000, Auth 8001, Catálogo 8002, Reservas 8003, Analítica 8004)
     volumes:
       - ./secrets/auth-es256.pem:/run/secrets/auth-es256.pem:ro
     healthcheck:
