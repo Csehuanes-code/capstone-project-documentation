@@ -41,9 +41,10 @@ from catalog_service.infrastructure.security import TokenInvalido, obtener_verif
 
 
 class CurrentUser:
-    def __init__(self, user_id: UUID, role: str) -> None:
+    def __init__(self, user_id: UUID, role: str, token: str | None = None) -> None:
         self.user_id = user_id
         self.role = role
+        self.token = token  # se reenvía a Reservas (CU-19)
 
 
 async def get_current_user_optional(
@@ -61,11 +62,12 @@ async def get_current_user_optional(
     verificador = obtener_verificador()
     if verificador is None:
         return None
+    token = authorization.removeprefix("Bearer ").strip()
     try:
-        identidad = verificador.verificar(authorization.removeprefix("Bearer ").strip())
+        identidad = verificador.verificar(token)
     except TokenInvalido:
         return None
-    return CurrentUser(user_id=identidad.user_id, role=identidad.rol)
+    return CurrentUser(user_id=identidad.user_id, role=identidad.rol, token=token)
 
 
 async def get_current_user(
@@ -107,7 +109,9 @@ async def require_admin(
 
 
 async def get_repos(
-    session: Annotated[AsyncSession | None, Depends(get_db_session)] = None,
+    # scope="function": el commit ocurre ANTES de enviar la respuesta. Si no, una petición
+    # inmediata (p. ej. agregar la tarifa a la oferta recién creada) no la encontraba.
+    session: Annotated[AsyncSession | None, Depends(get_db_session, scope="function")] = None,
 ) -> dict[str, Any]:
     if settings.USE_IN_MEMORY_REPO or session is None:
         return get_singleton_in_memory_container()

@@ -60,6 +60,7 @@ async def crear_calificacion(
         reserva_id=req.reserva_id,
         puntaje=req.puntaje,
         comentario=req.comentario,
+        token_acceso=current_user.token,
     )
     return CalificacionResponse(
         id=calif.id,

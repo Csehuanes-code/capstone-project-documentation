@@ -10,7 +10,7 @@ from auth_service.application.sessions import IssuedSession
 from auth_service.domain.consent import Consent
 from auth_service.domain.email import Email
 from auth_service.domain.user import User
-from auth_service.domain.verification import VerificationRequest
+from auth_service.domain.verification import VerificationRequest, VerificationStatus
 
 
 class UserRepository(Protocol):
@@ -39,6 +39,10 @@ class VerificationRepository(Protocol):
     async def find_by_id(self, request_id: UUID) -> VerificationRequest | None: ...
 
     async def save(self, request: VerificationRequest) -> None: ...
+
+    async def list_by_status(
+        self, status: VerificationStatus | None = None
+    ) -> list[VerificationRequest]: ...
 
 
 class VerificationUnitOfWork(Protocol):

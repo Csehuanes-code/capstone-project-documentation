@@ -1,3 +1,6 @@
+import asyncio
+import contextlib
+import logging
 import os
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
@@ -12,23 +15,29 @@ from auth_service.api.routes.jwks import router as jwks_router
 from auth_service.api.routes.verification import router as verification_router
 from auth_service.application.authenticate_user import AuthenticateUser
 from auth_service.application.confirm_email import ConfirmEmail
+from auth_service.application.dispatch_outbox import DispatchOutbox
+from auth_service.application.list_verifications import ListVerifications
 from auth_service.application.ports import TokenSecurityService
 from auth_service.application.refresh_session import RefreshSession
 from auth_service.application.register_user import RegisterUser
 from auth_service.application.resolve_verification import ResolveVerification
 from auth_service.application.submit_verification import SubmitVerification
+from auth_service.domain.email import Email
 from auth_service.infrastructure.clock import SystemClock
 from auth_service.infrastructure.database import (
     SqlAuthenticationAuditRecorder,
     SqlEmailConfirmationUnitOfWork,
     SqlLoginAttemptGuard,
+    SqlOutboxRepository,
     SqlRefreshTokenRepository,
     SqlRegistrationUnitOfWork,
     SqlUserRepository,
     SqlVerificationRepository,
     SqlVerificationUnitOfWork,
     create_database,
+    ensure_administrator,
 )
+from auth_service.infrastructure.rabbitmq import RabbitMqEventPublisher
 from auth_service.infrastructure.security import (
     Argon2PasswordHasher,
     ES256AccessTokenIssuer,
@@ -46,6 +55,7 @@ def create_app(
     confirm_email: ConfirmEmail | None = None,
     refresh_session: RefreshSession | None = None,
     readiness_check: Callable[[], Awaitable[bool]] | None = None,
+    list_verifications: ListVerifications | None = None,
 ) -> FastAPI:
     app = FastAPI(
         title="Auth - Plataforma de Turismo de Santa Marta",
@@ -61,6 +71,7 @@ def create_app(
     app.state.confirm_email = confirm_email
     app.state.refresh_session = refresh_session
     app.state.readiness_check = readiness_check
+    app.state.list_verifications = list_verifications
     app.include_router(health_router)
     app.include_router(auth_router)
     app.include_router(jwks_router)
@@ -138,9 +149,37 @@ def create_app_from_environment() -> FastAPI:
         SqlVerificationUnitOfWork(sessions),
     )
 
+    hasher = Argon2PasswordHasher()
+    admin_email = os.environ.get("AUTH_ADMIN_EMAIL")
+    admin_password = os.environ.get("AUTH_ADMIN_PASSWORD")
+    rabbitmq_url = os.environ.get("AUTH_RABBITMQ_URL", "")
+    publisher = RabbitMqEventPublisher(rabbitmq_url) if rabbitmq_url else None
+    dispatch = (
+        DispatchOutbox(SqlOutboxRepository(sessions), publisher, clock) if publisher else None
+    )
+
+    async def _despachar_outbox() -> None:
+        """Publica el outbox en RabbitMQ cada segundo; los fallos se reintentan solos."""
+        assert dispatch is not None
+        while True:
+            try:
+                await dispatch.execute()
+            except Exception:
+                logging.getLogger("auth.outbox").warning("Despacho del outbox falló", exc_info=True)
+            await asyncio.sleep(1)
+
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+        if admin_email and admin_password:
+            await ensure_administrator(sessions, Email(admin_email), hasher.hash(admin_password))
+        tarea = asyncio.create_task(_despachar_outbox()) if dispatch else None
         yield
+        if tarea is not None:
+            tarea.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await tarea
+        if publisher is not None:
+            await publisher.close()
         await runtime.dispose()
 
     return create_app(
@@ -153,6 +192,7 @@ def create_app_from_environment() -> FastAPI:
         confirm_email=confirm_email,
         refresh_session=refresh_session,
         readiness_check=runtime.check_ready,
+        list_verifications=ListVerifications(SqlVerificationRepository(sessions)),
     )
 
 

@@ -5,6 +5,10 @@ COPY pyproject.toml requirements.txt ./
 COPY src ./src
 COPY migrations ./migrations
 COPY alembic.ini ./
-RUN pip install --no-cache-dir .
+RUN pip install --no-cache-dir . \
+    && useradd --create-home --uid 10001 analitica
+USER analitica
 EXPOSE 8000
-CMD ["sh", "-c", "alembic upgrade head && uvicorn analitica.api:app --host 0.0.0.0 --port 8000"]
+HEALTHCHECK --interval=15s --timeout=3s --start-period=20s --retries=3 \
+    CMD python -c "import sys, urllib.request; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health/ready', timeout=2).status == 200 else 1)"
+CMD ["sh", "-c", "alembic upgrade head && exec uvicorn analitica.api:app --host 0.0.0.0 --port 8000 --proxy-headers"]

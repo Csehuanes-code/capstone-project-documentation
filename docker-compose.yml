@@ -1,0 +1,157 @@
+# Plataforma de Turismo de Santa Marta (Grupo 4): los 5 microservicios + frontend + gateway.
+#
+#   sh scripts/generar_claves.sh        (una sola vez: claves ES256 de Auth en ./secretos)
+#   docker compose up -d --build
+#   docker compose run --rm demo        (opcional: carga datos de demostración)
+#
+#   Aplicación (frontend + API):  http://localhost:8080
+#   Correos (Mailpit):            http://localhost:8025
+#   RabbitMQ (guest/guest):       http://localhost:15680
+#   Panel del gateway (Traefik):  http://localhost:8090
+#
+# Todo el tráfico entra por el gateway (puerto 8080). Los servicios no publican puertos.
+# Credenciales solo para desarrollo local.
+
+x-jwt-publica: &jwt-publica
+  JWT_ISSUER: ${JWT_ISSUER:-http://localhost:8001}
+  JWT_AUDIENCE: ${JWT_AUDIENCE:-santa-marta-platform}
+
+x-depende-infra: &depende-infra
+  postgres: { condition: service_healthy }
+  rabbitmq: { condition: service_healthy }
+
+services:
+  gateway:
+    image: traefik:v3.1
+    command:
+      - --entrypoints.web.address=:80
+      - --providers.file.filename=/etc/traefik/dinamico.yml
+      - --api.insecure=true
+      - --accesslog=true
+    ports:
+      - "8080:80"
+      - "8090:8080"
+    volumes:
+      - ./despliegue/gateway/dinamico.yml:/etc/traefik/dinamico.yml:ro
+    depends_on: [frontend, auth, catalogo, reservas, ia, analitica]
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres_local
+    volumes:
+      - ./despliegue/postgres:/docker-entrypoint-initdb.d:ro
+      - plataforma_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "15680:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "8025:8025"
+
+  auth:
+    build: ./microservices/auth-service
+    environment:
+      AUTH_DATABASE_URL: postgresql+asyncpg://auth:auth_local@postgres:5432/auth_db
+      AUTH_JWT_PRIVATE_KEY_FILE: /run/secretos/auth-es256.pem
+      AUTH_JWT_KID: plataforma-1
+      AUTH_JWT_ISSUER: ${JWT_ISSUER:-http://localhost:8001}
+      AUTH_JWT_AUDIENCE: ${JWT_AUDIENCE:-santa-marta-platform}
+      AUTH_LOGIN_LOCKOUT_SECONDS: "300"
+      AUTH_RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/%2F
+      AUTH_ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@turismo.co}
+      AUTH_ADMIN_PASSWORD: ${ADMIN_PASSWORD:-Admin-Demo-2026}
+    volumes:
+      - ./secretos/auth-es256.pem:/run/secretos/auth-es256.pem:ro
+    depends_on: *depende-infra
+
+  catalogo:
+    build: ./microservices/catalog-service
+    command: ["sh", "-c", "alembic upgrade head && exec uvicorn catalog_service.api.main:app --host 0.0.0.0 --port 8000 --proxy-headers"]
+    environment:
+      <<: *jwt-publica
+      DATABASE_URL: postgresql+asyncpg://catalogo:catalogo_local@postgres:5432/catalogo_db
+      ENVIRONMENT: production
+      JWT_PUBLIC_KEY_FILE: /run/secretos/auth-es256-public.pem
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/%2F
+      RESERVAS_SERVICE_URL: http://reservas:8003
+    volumes:
+      - ./secretos/auth-es256-public.pem:/run/secretos/auth-es256-public.pem:ro
+    depends_on: *depende-infra
+
+  reservas:
+    build:
+      context: .
+      dockerfile: microservices/reservas-service/Dockerfile
+    environment:
+      <<: *jwt-publica
+      DATABASE_URL: postgresql+psycopg://reservas:reservas_local@postgres:5432/reservas_db
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/%2F
+      CATALOGO_URL: http://catalogo:8000
+      JWT_CLAVE_PUBLICA_FILE: /run/secretos/auth-es256-public.pem
+      SMTP_HOST: mailpit
+      SMTP_PORT: "1025"
+      RESERVAS_URL_FRONTEND: ${URL_PUBLICA:-http://localhost:8080}
+    volumes:
+      - ./secretos/auth-es256-public.pem:/run/secretos/auth-es256-public.pem:ro
+    depends_on: *depende-infra
+
+  ia:
+    build: ./microservices/ia-service
+    environment:
+      IA_DATABASE_URL: postgresql+psycopg://ia:ia_local@postgres:5432/ia_db
+      IA_MIGRAR_AL_INICIAR: "1"
+      IA_SEMBRAR_DATOS_PRUEBA: "0"   # solo ofertas reales que llegan de Catálogo por eventos
+      IA_RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/%2F
+      IA_WORKERS: "1"
+    depends_on: *depende-infra
+
+  analitica:
+    build: ./microservices/analitica-service
+    environment:
+      <<: *jwt-publica
+      ANALITICA_DATABASE_URL: postgresql+psycopg://analitica:analitica_local@postgres:5432/analitica_db
+      ANALITICA_RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/%2F
+      JWT_PUBLIC_KEY_FILE: /run/secretos/auth-es256-public.pem
+      JWT_JWKS_URL: ""
+      ANALITICA_RECALCULO_SEGUNDOS: "60"
+    volumes:
+      - ./secretos/auth-es256-public.pem:/run/secretos/auth-es256-public.pem:ro
+    depends_on: *depende-infra
+
+  frontend:
+    build: ./frontend
+
+  # Carga datos de demostración a través del gateway (usuarios, verificación, ofertas, franjas,
+  # umbrales). Se ejecuta a mano:  docker compose run --rm demo
+  demo:
+    image: python:3.12-slim
+    profiles: ["demo"]
+    working_dir: /app
+    volumes:
+      - ./scripts/demo:/app:ro
+    environment:
+      URL_GATEWAY: http://gateway:80
+      URL_MAILPIT: http://mailpit:8025
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@turismo.co}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-Admin-Demo-2026}
+    command: ["sh", "-c", "pip install -q httpx && python sembrar.py"]
+    depends_on: [gateway]
+
+volumes:
+  plataforma_pg:

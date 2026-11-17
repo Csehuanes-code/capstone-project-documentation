@@ -140,3 +140,11 @@ class CupoInsuficienteResponse(BaseModel):
     detail: str
     disponibles: int | None = Field(None, description="Máximo que sí se puede reservar (CU-12 3a)")
     lista_espera_disponible: bool = Field(True, description="Puede unirse a la lista de espera (CU-13)")
+
+
+class EstadoReservaResponse(BaseModel):
+    reserva_id: str
+    estado: Literal[
+        "pendiente_pago", "confirmada", "completada", "expirada", "cancelada", "cancelacion_pendiente"
+    ]
+    oferta_id: str

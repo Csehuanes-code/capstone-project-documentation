@@ -465,6 +465,30 @@ class ConsultarComprobanteUseCase:
                           mensaje_en="Booking receipt")
 
 
+class ConsultarEstadoReservaUseCase:
+    """Para Catálogo (CU-19): ¿esta reserva es del turista y ya se completó el servicio?
+
+    Solo responde al turista dueño (403 a cualquier otro): así Catálogo no deja calificar
+    reservas ajenas. "completada" = confirmada y la fecha/hora del servicio ya pasó.
+    """
+
+    def __init__(self, uow_factory: FabricaUnidad, reloj: Reloj = _ahora_utc):
+        self.uow_factory = uow_factory
+        self.reloj = reloj
+
+    def ejecutar(self, reserva_id: str, turista_id: str) -> dict[str, str]:
+        with self.uow_factory() as uow:
+            reserva = uow.reservas.obtener_por_id(reserva_id)
+        if reserva is None:
+            raise RecursoNoEncontradoError(f"Reserva '{reserva_id}' no encontrada.")
+        if reserva.turista_id != turista_id:
+            raise AccesoDenegadoDominioError("La reserva pertenece a otro turista.")
+        estado = reserva.estado.value
+        if reserva.estado == EstadoReserva.CONFIRMADA and reserva.inicio_servicio <= self.reloj():
+            estado = "completada"
+        return {"reserva_id": reserva.id, "estado": estado, "oferta_id": reserva.oferta_id}
+
+
 def _filtrar(reservas: list[Reserva], filtro: FiltroReservas | None) -> list[Reserva]:
     if filtro is None:
         return reservas

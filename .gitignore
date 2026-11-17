@@ -1,3 +1,10 @@
 # OpenCode project-specific configuration
 .opencode/
 local-documentation/
+# Secretos locales (claves de Auth) y builds
+secretos/
+node_modules/
+dist/
+__pycache__/
+*.egg-info/
+.pytest_cache/

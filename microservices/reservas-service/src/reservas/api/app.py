@@ -24,6 +24,7 @@ from reservas.api.esquemas import (
     CrearReservaRequest,
     CupoInsuficienteResponse,
     DisputaResponse,
+    EstadoReservaResponse,
     EntradaListaEsperaResponse,
     ErrorResponse,
     FranjaDisponibilidadResponse,
@@ -36,6 +37,7 @@ from reservas.aplicacion.casos_uso import (
     CancelarReservaUseCase,
     ConsultarComprobanteUseCase,
     ConsultarDisponibilidadUseCase,
+    ConsultarEstadoReservaUseCase,
     CrearFranjaPrestadorUseCase,
     IniciarReservaUseCase,
     ListarDisputasUseCase,
@@ -111,6 +113,7 @@ class CasosDeUsoReservas:
     retirarse_lista: RetirarseListaEsperaUseCase
     mi_lista: ListarMiListaEsperaUseCase
     abrir_disputa: AbrirDisputaUseCase
+    estado_reserva: ConsultarEstadoReservaUseCase
     listar_disputas: ListarDisputasUseCase
     resolver_disputa: ResolverDisputaUseCase
 
@@ -275,6 +278,18 @@ def crear_router_reservas(
         reserva_id: str, identidad: Identidad = Depends(obtener_identidad)
     ) -> ComprobanteReservaResponse:
         return _comprobante(casos.comprobante.ejecutar(reserva_id, identidad.sub, identidad.rol))
+
+    @router.get(
+        "/reservas/{reserva_id}/estado",
+        response_model=EstadoReservaResponse,
+        tags=["Reservas"],
+        summary="Estado para calificar (CU-19): solo el turista dueño; 'completada' si ya ocurrió",
+        responses={404: {"model": ErrorResponse}, **ERRORES_COMUNES},
+    )
+    def estado_reserva(
+        reserva_id: str, identidad: Identidad = Depends(turista)
+    ) -> EstadoReservaResponse:
+        return EstadoReservaResponse(**casos.estado_reserva.ejecutar(reserva_id, identidad.sub))
 
     # --- CU-14: cancelar ---------------------------------------------------------------------
 

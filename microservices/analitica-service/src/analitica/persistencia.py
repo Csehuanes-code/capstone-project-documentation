@@ -30,7 +30,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
 from analitica.configuracion import config
-from analitica.dominio import ZONAS_NOMBRE, ReservaConfirmada, UmbralZona
+from analitica.dominio import ZONAS_NOMBRE, ReservaConfirmada, UmbralZona, hoy_colombia
 
 metadata = MetaData()
 reservas = Table(
@@ -108,8 +108,8 @@ class RepositorioSql:
             rows = session.execute(
                 select(reservas.c.fecha_servicio, func.sum(reservas.c.personas).label("personas"))
                 .where(and_(reservas.c.zona_id == zona_id,
-                            reservas.c.fecha_servicio >= date.today() - timedelta(days=dias),
-                            reservas.c.fecha_servicio < date.today()))
+                            reservas.c.fecha_servicio >= hoy_colombia() - timedelta(days=dias),
+                            reservas.c.fecha_servicio < hoy_colombia()))
                 .group_by(reservas.c.fecha_servicio)
             ).all()
             return float(sum(r.personas for r in rows) / dias) if rows else 0.0
@@ -137,7 +137,7 @@ class RepositorioSql:
                     "ingresos_cop": str(row["ingresos_cop"] or Decimal(0)),
                     "concentracion": count / total if total else 0.0,
                     "umbral_visitantes": threshold.visitantes_maximos if threshold else None,
-                    "ocupacion_estimada": ratio, "cerca_del_umbral": bool(ratio is not None and ratio >= 0.9),
+                    "ocupacion_estimada": ratio, "cerca_del_umbral": bool(ratio is not None and ratio >= config.alert_ratio),
                 })
             return result
 
@@ -157,8 +157,8 @@ class RepositorioSql:
                     zona_id=reserva.zona_id, personas=reserva.personas, fecha_servicio=reserva.fecha_servicio,
                     total=reserva.total, creado_en=datetime.now(UTC),
                 ))
-                if reserva.fecha_servicio == date.today():
-                    self._actualizar_ocupacion(session, reserva.zona_id)
+                # Toda reserva recalcula y publica la ocupación de su zona (si tiene umbral).
+                self._actualizar_ocupacion(session, reserva.zona_id)
             return True
         except IntegrityError:
             return False
@@ -167,7 +167,7 @@ class RepositorioSql:
         threshold = session.execute(select(umbrales).where(umbrales.c.zona_id == zona_id)).mappings().first()
         if not threshold:
             return
-        end = date.today()
+        end = hoy_colombia()
         start = end - timedelta(days=int(threshold["periodo_dias"]) - 1)
         people = int(session.scalar(select(func.coalesce(func.sum(reservas.c.personas), 0)).where(
             and_(reservas.c.zona_id == zona_id, reservas.c.fecha_servicio.between(start, end))
@@ -177,12 +177,12 @@ class RepositorioSql:
         active = session.execute(select(alertas).where(
             and_(alertas.c.zona_id == zona_id, alertas.c.resuelta_en.is_(None))
         )).first()
-        if ratio >= 0.9 and active is None:
+        if ratio >= config.alert_ratio and active is None:
             session.execute(insert(alertas).values(
                 id=str(uuid.uuid4()), zona_id=zona_id, ocupacion=ratio, visitantes=people,
                 umbral=threshold["visitantes_maximos"], creada_en=now,
             ))
-        elif ratio < 0.9 and active is not None:
+        elif ratio < config.alert_ratio and active is not None:
             session.execute(update(alertas).where(alertas.c.id == active.id).values(resuelta_en=now))
         payload = {"zona_id": zona_id, "nombre": ZONAS_NOMBRE[zona_id],
                    "ocupacion": ratio, "medido_en": now.isoformat().replace("+00:00", "Z")}
@@ -191,6 +191,14 @@ class RepositorioSql:
             evento_id=event_id, tipo="analitica.zona.ocupacion_actualizada", datos=payload,
             ocurrido_en=now, disponible_en=now, intentos=0,
         ))
+
+    def recalcular_ocupaciones(self) -> int:
+        """Recalcula y publica la ocupación de todas las zonas con umbral (tarea periódica)."""
+        with self._factory.begin() as session:
+            zonas: list[str] = list(session.scalars(select(umbrales.c.zona_id)))
+            for zona_id in zonas:
+                self._actualizar_ocupacion(session, zona_id)
+        return len(zonas)
 
     def publicar_pendientes(self, publish: Any, lote: int = 50) -> int:
         """Publica con confirmación; duplicados tras un crash conservan evento_id y son idempotentes."""

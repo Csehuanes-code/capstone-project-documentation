@@ -83,3 +83,38 @@ def test_consumidor_proyecta_evento_una_sola_vez_y_rechaza_datos_invalidos(tmp_p
     with pytest.raises(ValueError, match="zona_id"):
         consumidor.procesar_mensaje_raw(invalido.model_dump_json())
     engine.dispose()
+
+
+def test_solicitud_de_correo_de_auth_queda_como_notificacion(tmp_path):
+    from reservas.infraestructura.rabbitmq import (
+        TIPO_NOTIFICACION_AUTH,
+        crear_manejador_notificacion_auth,
+    )
+    from reservas.infraestructura.sql.tablas import NotificacionORM
+
+    engine = create_engine(f"sqlite:///{tmp_path / 'auth.sqlite'}")
+    BaseReservas.metadata.create_all(engine)
+    sesiones = sessionmaker(engine, expire_on_commit=False)
+    consumidor = ConsumidorIdempotente(
+        sesiones,
+        manejadores={TIPO_NOTIFICACION_AUTH: crear_manejador_notificacion_auth("http://front")},
+    )
+    # Lo que escribe auth-service en su outbox al registrar un usuario.
+    sobre = SobreEvento(
+        tipo=TIPO_NOTIFICACION_AUTH,
+        datos={
+            "tipo": "confirmacion_registro",
+            "destinatario_id": "u-1",
+            "correo": "nuevo@ejemplo.com",
+            "token_confirmacion": "tok-123",
+            "expira_en": "2026-11-18T00:00:00+00:00",
+            "idioma": "es",
+        },
+    )
+    assert consumidor.procesar_mensaje_raw(sobre.model_dump_json()) is True
+    assert consumidor.procesar_mensaje_raw(sobre.model_dump_json()) is False
+    with sesiones() as session:
+        (notificacion,) = session.query(NotificacionORM).all()
+    assert notificacion.correo_destino == "nuevo@ejemplo.com"
+    assert "http://front/confirmar?token=tok-123" in notificacion.cuerpo_texto
+    assert notificacion.enviada is False  # la envía el proceso de fondo

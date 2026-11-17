@@ -242,6 +242,11 @@ class ReservasClient(ABC):
     """Synchronous client to call Reservas service: GET /reservas/{id}/estado (ADR-04 §4.2)."""
 
     @abstractmethod
-    async def get_reserva_estado(self, reserva_id: UUID) -> dict[str, Any] | None:
-        """Returns dict with reserva details including 'estado', or None if unavailable/error."""
+    async def get_reserva_estado(
+        self, reserva_id: UUID, token_acceso: str | None = None
+    ) -> dict[str, Any] | None:
+        """Estado de la reserva visto por el turista dueño (Reservas responde 403 a otros).
+
+        Devuelve {'reserva_id', 'estado', 'oferta_id'}, o None si no existe, no es del turista
+        o Reservas no responde."""
         ...
