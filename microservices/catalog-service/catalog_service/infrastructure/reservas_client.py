@@ -25,11 +25,14 @@ class HttpReservasClient(ReservasClient):
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
 
-    async def get_reserva_estado(self, reserva_id: UUID) -> dict[str, Any] | None:
+    async def get_reserva_estado(
+        self, reserva_id: UUID, token_acceso: str | None = None
+    ) -> dict[str, Any] | None:
         url = f"{self.base_url}/api/v1/reservas/{reserva_id}/estado"
+        headers = {"Authorization": f"Bearer {token_acceso}"} if token_acceso else {}
         try:
             async with httpx.AsyncClient(timeout=self.timeout) as client:
-                response = await client.get(url)
+                response = await client.get(url, headers=headers)
                 if response.status_code == 200:
                     data = response.json()
                     return data if isinstance(data, dict) else None
@@ -57,7 +60,9 @@ class MockReservasClient(ReservasClient):
     def set_reserva(self, reserva_id: UUID, estado: str) -> None:
         self.reservas[reserva_id] = {"id": str(reserva_id), "estado": estado}
 
-    async def get_reserva_estado(self, reserva_id: UUID) -> dict[str, Any] | None:
+    async def get_reserva_estado(
+        self, reserva_id: UUID, token_acceso: str | None = None
+    ) -> dict[str, Any] | None:
         if reserva_id in self.reservas:
             return self.reservas[reserva_id]
         # Fallback to configured default

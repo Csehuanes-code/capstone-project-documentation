@@ -131,3 +131,36 @@ class RelevoOutbox:
                 if connection is not None and connection.is_open:
                     connection.close()
             self._stop.wait(3)
+
+
+class RecalculoPeriodico:
+    """Recalcula y publica la ocupación de las zonas cada `recalculo_segundos`.
+
+    Sin esto, la ocupación solo cambiaba al llegar una reserva: al pasar el día, IA seguía
+    viendo la del día anterior y su regla de descongestión (>= 80 %) usaba datos viejos.
+    """
+
+    def __init__(self, repository: RepositorioSql) -> None:
+        self._repo = repository
+        self._stop = threading.Event()
+        self._thread: threading.Thread | None = None
+
+    def start(self) -> None:
+        if self._thread is None:
+            self._thread = threading.Thread(target=self._loop, name="analitica-recalculo", daemon=True)
+            self._thread.start()
+
+    def stop(self) -> None:
+        self._stop.set()
+        if self._thread:
+            self._thread.join(timeout=6)
+            self._thread = None
+
+    def _loop(self) -> None:
+        while not self._stop.is_set():
+            try:
+                zonas = self._repo.recalcular_ocupaciones()
+                log.info("Ocupación recalculada en %d zonas", zonas)
+            except Exception:
+                log.exception("No se pudo recalcular la ocupación; se reintentará")
+            self._stop.wait(config.recalculo_segundos)

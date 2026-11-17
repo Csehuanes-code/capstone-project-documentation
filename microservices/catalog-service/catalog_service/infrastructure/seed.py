@@ -184,3 +184,9 @@ async def seed_canonical_data() -> None:
             actualizado_en=datetime.datetime.now(datetime.UTC),
         )
         await repos["prestador_repo"].save(perfil)
+
+    # Sin commit los datos se perdían al cerrar la sesión: Catálogo arrancaba sin zonas ni tipos.
+    sesion = repos.get("session")
+    if sesion is not None:
+        await sesion.commit()
+        await sesion.close()

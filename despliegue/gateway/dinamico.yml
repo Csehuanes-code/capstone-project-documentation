@@ -1,0 +1,56 @@
+# Gateway (Traefik): única puerta de entrada. Enruta por prefijo de ruta a cada microservicio.
+# Las reglas más específicas tienen mayor prioridad.
+http:
+  routers:
+    auth:
+      rule: "PathPrefix(`/api/v1/auth`) || Path(`/.well-known/jwks.json`)"
+      service: auth
+      priority: 100
+    catalogo:
+      rule: "PathPrefix(`/api/v1/catalogo`)"
+      service: catalogo
+      priority: 100
+    ia:
+      rule: "PathPrefix(`/api/v1/ia`)"
+      service: ia
+      priority: 100
+    analitica:
+      rule: "PathPrefix(`/api/v1/analitica`)"
+      service: analitica
+      priority: 100
+    reservas:
+      rule: >-
+        PathPrefix(`/api/v1/reservas`) || PathPrefix(`/api/v1/prestador`) ||
+        PathPrefix(`/api/v1/franjas`) || PathPrefix(`/api/v1/lista-espera`) ||
+        PathPrefix(`/api/v1/admin/disputas`) || PathRegexp(`^/api/v1/ofertas/[^/]+/disponibilidad`)
+      service: reservas
+      priority: 90
+    frontend:
+      rule: "PathPrefix(`/`)"
+      service: frontend
+      priority: 1
+
+  services:
+    auth:
+      loadBalancer:
+        servers: [{ url: "http://auth:8000" }]
+        healthCheck: { path: /ready, interval: 10s, timeout: 3s }
+    catalogo:
+      loadBalancer:
+        servers: [{ url: "http://catalogo:8000" }]
+        healthCheck: { path: /health/ready, interval: 10s, timeout: 3s }
+    ia:
+      loadBalancer:
+        servers: [{ url: "http://ia:8000" }]
+        healthCheck: { path: /health/ready, interval: 10s, timeout: 3s }
+    analitica:
+      loadBalancer:
+        servers: [{ url: "http://analitica:8000" }]
+        healthCheck: { path: /health/ready, interval: 10s, timeout: 3s }
+    reservas:
+      loadBalancer:
+        servers: [{ url: "http://reservas:8003" }]
+        healthCheck: { path: /health/ready, interval: 10s, timeout: 3s }
+    frontend:
+      loadBalancer:
+        servers: [{ url: "http://frontend:80" }]

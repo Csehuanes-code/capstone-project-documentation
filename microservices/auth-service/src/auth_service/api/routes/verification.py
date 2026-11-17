@@ -13,6 +13,7 @@ from auth_service.api.schemas import (
 )
 from auth_service.application.errors import TokenVerificationFailed
 from auth_service.application.identity import AuthenticatedIdentity
+from auth_service.application.list_verifications import ListVerifications
 from auth_service.application.ports import TokenSecurityService
 from auth_service.application.resolve_verification import (
     AdministratorRequired,
@@ -27,6 +28,7 @@ from auth_service.application.submit_verification import (
 )
 from auth_service.domain.errors import InvalidVerificationTransition
 from auth_service.domain.role import Role
+from auth_service.domain.verification import VerificationStatus
 
 router = APIRouter(prefix="/api/v1/auth", tags=["Verificación de prestadores"])
 bearer_scheme = HTTPBearer(auto_error=False)
@@ -44,6 +46,13 @@ def _resolve_use_case(request: Request) -> ResolveVerification:
     if use_case is None:
         raise HTTPException(status_code=503, detail="Verificación no está configurada.")
     return cast(ResolveVerification, use_case)
+
+
+def _list_use_case(request: Request) -> ListVerifications:
+    use_case = getattr(request.app.state, "list_verifications", None)
+    if use_case is None:
+        raise HTTPException(status_code=503, detail="Verificación no está configurada.")
+    return cast(ListVerifications, use_case)
 
 
 def _identity(
@@ -150,3 +159,16 @@ async def resolve_verification(
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     return VerificationResponse.from_domain(request)
+
+
+@router.get(
+    "/admin/verificaciones",
+    response_model=list[VerificationResponse],
+    summary="Solicitudes de verificación para revisar (CU-28); filtro opcional por estado",
+)
+async def list_verifications(
+    use_case: Annotated[ListVerifications, Depends(_list_use_case)],
+    _admin: Annotated[AuthenticatedIdentity, Depends(_administrator_identity)],
+    estado: VerificationStatus | None = None,
+) -> list[VerificationResponse]:
+    return [VerificationResponse.from_domain(r) for r in await use_case.execute(estado)]

@@ -29,12 +29,17 @@ from sqlalchemy.orm import Session
 
 from comun.correlacion import establecer_correlation_id
 from comun.eventos import EXCHANGE_TURISMO, SobreEvento
+from reservas.aplicacion import textos
 from reservas.dominio.entidades import ProyeccionOfertaLocal
-from reservas.infraestructura.sql.repositorios import ProyeccionOfertaRepositoryPostgres
+from reservas.infraestructura.sql.repositorios import (
+    NotificacionRepositoryPostgres,
+    ProyeccionOfertaRepositoryPostgres,
+)
 
 log = logging.getLogger("reservas.mensajeria")
 
 TIPOS_OFERTA = ("catalogo.oferta.publicada", "catalogo.oferta.actualizada", "catalogo.oferta.retirada")
+TIPO_NOTIFICACION_AUTH = "auth.notificacion.solicitada"
 
 # Errores que no se arreglan reintentando: el mensaje no cumple el contrato.
 ERRORES_PERMANENTES: tuple[type[BaseException], ...] = (
@@ -73,6 +78,35 @@ def manejar_evento_oferta_catalogo(sesion: Session, sobre: SobreEvento) -> None:
             activa=False if sobre.tipo == "catalogo.oferta.retirada" else d["activa"],
         )
     )
+
+
+def crear_manejador_notificacion_auth(url_frontend: str) -> Callable[[Session, SobreEvento], None]:
+    """auth.notificacion.solicitada: Auth pide enviar un correo (hoy, confirmación de registro).
+
+    Se guarda en la tabla `notificacion` en la misma transacción que evento_procesado; el
+    proceso de fondo de Reservas la envía por SMTP y la reintenta si el correo falla.
+    """
+
+    def manejar(sesion: Session, sobre: SobreEvento) -> None:
+        if sobre.tipo != TIPO_NOTIFICACION_AUTH:
+            return
+        d = sobre.datos
+        if d.get("tipo") != "confirmacion_registro":
+            return  # otros avisos de Auth aún no tienen plantilla
+        for campo in ("destinatario_id", "correo", "token_confirmacion"):
+            if not isinstance(d.get(campo), str) or not d[campo]:
+                raise ValueError(f"{campo} debe ser un texto no vacío.")
+        NotificacionRepositoryPostgres(sesion).guardar(
+            textos.confirmacion_registro(
+                destinatario_id=d["destinatario_id"],
+                correo=d["correo"],
+                token=d["token_confirmacion"],
+                idioma=str(d.get("idioma") or "es"),
+                url_frontend=url_frontend,
+            )
+        )
+
+    return manejar
 
 
 class ConsumidorRabbitMQ:

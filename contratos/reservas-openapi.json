@@ -527,6 +527,83 @@
         }
       }
     },
+    "/api/v1/reservas/{reserva_id}/estado": {
+      "get": {
+        "tags": [
+          "Reservas"
+        ],
+        "summary": "Estado para calificar (CU-19): solo el turista dueño; 'completada' si ya ocurrió",
+        "operationId": "estado_reserva_api_v1_reservas__reserva_id__estado_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "reserva_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Reserva Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EstadoReservaResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "401": {
+            "description": "Falta el token o no es válido",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Rol sin permiso o recurso de otro usuario",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/reservas/{reserva_id}/cancelar": {
       "post": {
         "tags": [
@@ -1783,6 +1860,37 @@
           "detail"
         ],
         "title": "ErrorResponse"
+      },
+      "EstadoReservaResponse": {
+        "properties": {
+          "reserva_id": {
+            "type": "string",
+            "title": "Reserva Id"
+          },
+          "estado": {
+            "type": "string",
+            "enum": [
+              "pendiente_pago",
+              "confirmada",
+              "completada",
+              "expirada",
+              "cancelada",
+              "cancelacion_pendiente"
+            ],
+            "title": "Estado"
+          },
+          "oferta_id": {
+            "type": "string",
+            "title": "Oferta Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "reserva_id",
+          "estado",
+          "oferta_id"
+        ],
+        "title": "EstadoReservaResponse"
       },
       "FranjaDisponibilidadResponse": {
         "properties": {

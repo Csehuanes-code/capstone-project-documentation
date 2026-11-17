@@ -206,6 +206,16 @@ class SqlVerificationRepository(VerificationRepository):
             row = await session.get(VerificationRow, request_id)
             return _to_verification(row) if row else None
 
+    async def list_by_status(
+        self, status: VerificationStatus | None = None
+    ) -> list[VerificationRequest]:
+        statement = select(VerificationRow)
+        if status is not None:
+            statement = statement.where(VerificationRow.status == status.value)
+        async with self._sessions() as session:
+            rows = (await session.execute(statement)).scalars().all()
+            return [_to_verification(row) for row in rows]
+
     async def save(self, request: VerificationRequest) -> None:
         async with self._sessions() as session, session.begin():
             row = await session.get(VerificationRow, request.id)
@@ -486,3 +496,33 @@ class SqlLoginAttemptGuard(LoginAttemptGuard):
 
 def _as_utc(value: datetime) -> datetime:
     return value.replace(tzinfo=UTC) if value.tzinfo is None else value.astimezone(UTC)
+
+
+async def ensure_administrator(
+    sessions: SessionFactory, email: Email, password_hash: str
+) -> bool:
+    """Crea la cuenta administradora inicial si no existe (el registro público no lo permite).
+
+    Devuelve True si la creó. Se usa al arrancar con AUTH_ADMIN_EMAIL y AUTH_ADMIN_PASSWORD.
+    """
+    async with sessions() as session, session.begin():
+        existing = await session.scalar(select(UserRow).where(UserRow.email == email.value))
+        if existing is not None:
+            return False
+        admin = User(
+            id=uuid4(),
+            email=email,
+            role=Role.ADMINISTRADOR,
+            password_hash=password_hash,
+            status=UserStatus.ACTIVO,
+        )
+        session.add(
+            UserRow(
+                id=admin.id,
+                email=admin.email.value,
+                role=admin.role.value,
+                password_hash=admin.password_hash,
+                status=admin.status.value,
+            )
+        )
+        return True

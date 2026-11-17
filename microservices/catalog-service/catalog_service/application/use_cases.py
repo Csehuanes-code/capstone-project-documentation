@@ -465,6 +465,7 @@ class CrearCalificacionUseCase:
         reserva_id: UUID,
         puntaje: int,
         comentario: str = "",
+        token_acceso: str | None = None,
     ) -> Calificacion:
         # 1. Validate score range 1-5
         if not (1 <= puntaje <= 5):
@@ -476,11 +477,14 @@ class CrearCalificacionUseCase:
             raise CalificacionDuplicada(reserva_id)
 
         # 3. Synchronous verification with Reservas: GET /reservas/{id}/estado (ADR-04 §4.2)
-        reserva_info = await self.reservas_client.get_reserva_estado(reserva_id)
+        reserva_info = await self.reservas_client.get_reserva_estado(reserva_id, token_acceso)
         if not reserva_info:
             raise DomainError(
                 "No fue posible verificar el estado de la reserva con el servicio de Reservas."
             )
+        oferta_reservada = reserva_info.get("oferta_id")
+        if oferta_reservada is not None and str(oferta_reservada) != str(oferta_id):
+            raise DomainError("La reserva no corresponde a esta oferta.")
         if reserva_info.get("estado") != "completada":
             raise DomainError(
                 f"Solo se pueden calificar reservas completadas. Estado actual: {reserva_info.get('estado')!r}"

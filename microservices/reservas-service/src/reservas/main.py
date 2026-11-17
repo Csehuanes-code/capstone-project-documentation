@@ -37,6 +37,7 @@ from reservas.aplicacion.casos_uso import (
     CancelarReservaUseCase,
     ConsultarComprobanteUseCase,
     ConsultarDisponibilidadUseCase,
+    ConsultarEstadoReservaUseCase,
     CrearFranjaPrestadorUseCase,
     EnviarNotificacionesPendientesUseCase,
     ExpirarBloqueosVencidosUseCase,
@@ -61,7 +62,9 @@ from reservas.infraestructura.adaptadores import (
     PagoSimuladoAdapter,
 )
 from reservas.infraestructura.rabbitmq import (
+    TIPO_NOTIFICACION_AUTH,
     TIPOS_OFERTA,
+    crear_manejador_notificacion_auth,
     ConsumidorRabbitMQ,
     manejar_evento_oferta_catalogo,
     verificar_rabbitmq,
@@ -121,6 +124,7 @@ def crear_app(
         retirarse_lista=RetirarseListaEsperaUseCase(uow_factory, **extra),
         mi_lista=ListarMiListaEsperaUseCase(uow_factory),
         abrir_disputa=AbrirDisputaUseCase(uow_factory),
+        estado_reserva=ConsultarEstadoReservaUseCase(uow_factory, **extra),
         listar_disputas=ListarDisputasUseCase(uow_factory),
         resolver_disputa=ResolverDisputaUseCase(uow_factory, pagos),
     )
@@ -132,12 +136,18 @@ def crear_app(
     consumidor = None
     if mq_url:
         idempotente = ConsumidorIdempotente(
-            sesiones, manejadores={t: manejar_evento_oferta_catalogo for t in TIPOS_OFERTA}
+            sesiones,
+            manejadores={
+                **{t: manejar_evento_oferta_catalogo for t in TIPOS_OFERTA},
+                TIPO_NOTIFICACION_AUTH: crear_manejador_notificacion_auth(
+                    os.getenv("RESERVAS_URL_FRONTEND", "http://localhost:8080")
+                ),
+            },
         )
         consumidor = ConsumidorRabbitMQ(
             url=mq_url,
             cola=os.getenv("RESERVAS_RABBITMQ_COLA", COLA_EVENTOS),
-            suscripciones=("catalogo.oferta.*",),
+            suscripciones=("catalogo.oferta.*", TIPO_NOTIFICACION_AUTH),
             procesar=idempotente.procesar_mensaje_raw,
         )
 

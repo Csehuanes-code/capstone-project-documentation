@@ -139,3 +139,32 @@ def _para(reserva: Reserva, asunto: str, lineas: list[str]) -> Notificacion:
         asunto=asunto,
         cuerpo_texto="\n".join(lineas),
     )
+
+
+def confirmacion_registro(
+    *, destinatario_id: str, correo: str, token: str, idioma: str, url_frontend: str
+) -> Notificacion:
+    """Correo de confirmación de cuenta que pide Auth (evento auth.notificacion.solicitada).
+
+    Las notificaciones viven en Reservas (ADR-02): Auth solo deja la solicitud en su outbox.
+    """
+    enlace = f"{url_frontend.rstrip('/')}/confirmar?token={token}"
+    if idioma == "en":
+        asunto = "Confirm your account — Turismo Santa Marta"
+        cuerpo = (
+            "Welcome! Confirm your email to activate your account:\n"
+            f"{enlace}\n\nThe link expires in 24 hours."
+        )
+    else:
+        asunto = "Confirma tu cuenta — Turismo Santa Marta"
+        cuerpo = (
+            "¡Bienvenido! Confirma tu correo para activar tu cuenta:\n"
+            f"{enlace}\n\nEl enlace vence en 24 horas."
+        )
+    return Notificacion.nueva(
+        destinatario_id=destinatario_id,
+        correo_destino=correo,
+        idioma=idioma if idioma in ("es", "en") else "es",
+        asunto=asunto,
+        cuerpo_texto=cuerpo,
+    )

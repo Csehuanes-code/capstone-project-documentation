@@ -407,3 +407,21 @@ def test_fechas_cercanas_y_filtros_de_historial(cliente, claves, app):
     )
     assert por_prestador.status_code == 200
     assert por_prestador.json() == []
+
+
+def test_estado_para_calificar_solo_al_dueno_y_completada_tras_el_servicio(cliente, claves, reloj):
+    reserva = crear_reserva(cliente, claves, key="estado-cu19").json()
+    url = f"/api/v1/reservas/{reserva['reserva_id']}/estado"
+
+    antes = cliente.get(url, headers=autorizacion(claves))
+    assert antes.status_code == 200 and antes.json()["estado"] == "confirmada"
+
+    otro = cliente.get(url, headers=autorizacion(claves, sujeto="otro-turista"))
+    assert otro.status_code == 403  # Catálogo no deja calificar reservas ajenas
+    assert cliente.get(url).status_code == 401
+
+    reloj[0] = reloj[0] + timedelta(days=30)  # el servicio ya ocurrió
+    despues = cliente.get(url, headers=autorizacion(claves))
+    assert despues.json() == {
+        "reserva_id": reserva["reserva_id"], "estado": "completada", "oferta_id": OFERTA_ID,
+    }

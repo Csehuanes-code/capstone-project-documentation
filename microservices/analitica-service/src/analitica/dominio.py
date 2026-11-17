@@ -1,7 +1,7 @@
 """Reglas puras del dominio de Analítica."""
 
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 
 ZONAS_VALIDAS = frozenset({"minca", "tayrona", "centro", "los-naranjos", "taganga", "rodadero"})
@@ -9,6 +9,15 @@ ZONAS_NOMBRE = {
     "minca": "Minca", "tayrona": "Tayrona", "centro": "Centro Histórico",
     "los-naranjos": "Los Naranjos", "taganga": "Taganga", "rodadero": "El Rodadero",
 }
+
+
+ZONA_HORARIA_COLOMBIA = timezone(timedelta(hours=-5), name="America/Bogota")
+
+
+def hoy_colombia() -> date:
+    """Fecha actual en Santa Marta. Con date.today() en un servidor UTC, entre las 7 p. m. y
+    la medianoche de Colombia se contaría el día siguiente."""
+    return datetime.now(ZONA_HORARIA_COLOMBIA).date()
 
 
 class ReglaDominioError(ValueError):

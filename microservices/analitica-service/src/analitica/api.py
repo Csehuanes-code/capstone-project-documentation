@@ -18,7 +18,7 @@ from analitica.aplicacion import ConfigurarUmbral, ConsultarIndicadores
 from analitica.dominio import ZONAS_VALIDAS, ReglaDominioError, UmbralZona
 from analitica.persistencia import RepositorioSql, get_engine
 from analitica.seguridad import Identidad, administrador
-from analitica.worker import Consumidor, RelevoOutbox
+from analitica.worker import Consumidor, RecalculoPeriodico, RelevoOutbox
 
 
 class UmbralEntrada(BaseModel):
@@ -41,15 +41,18 @@ class UmbralRespuesta(BaseModel):
 repository = RepositorioSql()
 consumer = Consumidor(repository)
 relay = RelevoOutbox(repository)
+recalculo = RecalculoPeriodico(repository)
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     consumer.start()
     relay.start()
+    recalculo.start()
     yield
     consumer.stop()
     relay.stop()
+    recalculo.stop()
     get_engine().dispose()
 
 
