@@ -1,6 +1,7 @@
 import { Link, NavLink, Navigate, Route, Routes, useNavigate } from "react-router-dom";
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import type { Rol } from "./api";
+import { Isotipo } from "./ilustraciones";
 import { useIdioma } from "./idioma";
 import { useSesion } from "./sesion";
 import Inicio from "./pages/Inicio";
@@ -20,35 +21,66 @@ function Protegida({ rol, children }: { rol?: Rol; children: ReactNode }) {
   return <>{children}</>;
 }
 
+interface EventoInstalacion extends Event { prompt: () => Promise<void> }
+
+/** Botón "Instalar app": aparece cuando el navegador permite instalar la PWA. */
+function useInstalacion() {
+  const [evento, setEvento] = useState<EventoInstalacion | null>(null);
+  useEffect(() => {
+    const guardar = (e: Event) => { e.preventDefault(); setEvento(e as EventoInstalacion); };
+    window.addEventListener("beforeinstallprompt", guardar);
+    return () => window.removeEventListener("beforeinstallprompt", guardar);
+  }, []);
+  return evento ? () => { evento.prompt(); setEvento(null); } : null;
+}
+
 export default function App() {
   const { usuario, salir } = useSesion();
   const { t, idioma, cambiar } = useIdioma();
   const navegar = useNavigate();
+  const instalar = useInstalacion();
+  const en = idioma === "en";
   return (
     <>
+      <div className="aviso-superior">
+        <div className="contenedor">
+          <span><b>{en ? "SUSTAINABLE TOURISM" : "TURISMO SOSTENIBLE"}</b> · {en
+            ? "Verified operators · real availability · no overbooking"
+            : "Prestadores verificados · cupos reales · sin sobreventa"}</span>
+          <span>{en ? "Santa Marta, Colombia" : "Santa Marta, Colombia"}</span>
+        </div>
+      </div>
       <header className="cabecera">
         <div className="contenedor cabecera-fila">
-          <Link to="/" className="marca">
-            <img src="/icono.svg" alt="" width={32} height={32} />
-            <span>Turismo Santa Marta</span>
+          <Link to="/" className="marca" aria-label="SierraMar, inicio">
+            <Isotipo tam={42} />
+            <span>
+              <span className="marca-nombre">Sierra<span>Mar</span></span>
+              <span className="marca-lema">{en ? "Sustainable tourism" : "Turismo sostenible"}</span>
+            </span>
           </Link>
-          <nav className="menu">
+          <nav className="menu" aria-label="Principal">
             <NavLink to="/" end>{t("explorar")}</NavLink>
             {usuario?.rol === "turista" && <NavLink to="/mis-reservas">{t("misReservas")}</NavLink>}
             {usuario?.rol === "prestador" && <NavLink to="/prestador">{t("panel")}</NavLink>}
             {usuario?.rol === "administrador" && <NavLink to="/admin">{t("admin")}</NavLink>}
           </nav>
           <div className="acciones">
-            <button className="boton-texto" onClick={cambiar} aria-label="Idioma / Language">
-              {idioma === "es" ? "EN" : "ES"}
-            </button>
+            <div className="segmento" role="group" aria-label="Idioma / Language">
+              <button aria-pressed={!en} onClick={() => en && cambiar()}>ES</button>
+              <button aria-pressed={en} onClick={() => !en && cambiar()}>EN</button>
+            </div>
+            {instalar && <button className="boton-secundario" onClick={instalar}>⤓ {en ? "Install app" : "Instalar app"}</button>}
             {usuario ? (
               <>
                 <span className="usuario" title={usuario.email}>{usuario.email || usuario.rol}</span>
-                <button className="boton-secundario" onClick={() => { salir(); navegar("/"); }}>{t("salir")}</button>
+                <button className="boton-texto" onClick={() => { salir(); navegar("/"); }}>{t("salir")}</button>
               </>
             ) : (
-              <Link className="boton" to="/entrar">{t("entrar")}</Link>
+              <>
+                <Link className="boton-texto" to="/entrar">{t("entrar")}</Link>
+                <Link className="boton" to="/registro">{t("registro")}</Link>
+              </>
             )}
           </div>
         </div>
@@ -67,8 +99,21 @@ export default function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
-      <footer className="pie contenedor">
-        Grupo 4 · Plataforma Digital para la Gestión Integrada y Sostenible del Turismo en Santa Marta
+      <footer className="pie">
+        <div className="contenedor">
+          <div>
+            <b>SierraMar</b>
+            <p style={{ margin: ".4rem 0 0", maxWidth: 420 }}>
+              {en
+                ? "Digital platform for integrated and sustainable tourism management in Santa Marta."
+                : "Plataforma Digital para la Gestión Integrada y Sostenible del Turismo en Santa Marta."}
+            </p>
+          </div>
+          <div>
+            Universidad del Magdalena · Ingeniería de Sistemas<br />
+            Arquitectura de Software 2026-II · Grupo 4
+          </div>
+        </div>
       </footer>
     </>
   );
