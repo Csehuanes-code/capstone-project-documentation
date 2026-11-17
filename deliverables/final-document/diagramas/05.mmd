@@ -1,0 +1,68 @@
+erDiagram
+    FRANJA_DISPONIBILIDAD ||--o{ RESERVA : ocupa
+    RESERVA ||--|{ PAGO : registra
+    RESERVA ||--o{ ASISTENTE : incluye
+    RESERVA ||--o{ NOTIFICACION : genera
+    RESERVA ||--o{ DISPUTA : origina
+    FRANJA_DISPONIBILIDAD ||--o{ ENTRADA_LISTA_ESPERA : tiene
+    PROYECCION_OFERTA_LOCAL ||--o{ FRANJA_DISPONIBILIDAD : "oferta (copia local)"
+    FRANJA_DISPONIBILIDAD {
+        varchar id PK
+        varchar oferta_id
+        varchar zona_id
+        date fecha
+        time hora_inicio
+        int cupo_total
+        int cupo_disponible
+    }
+    RESERVA {
+        varchar id PK
+        varchar codigo UK "SMT-XXXXXX"
+        varchar clave_idempotencia UK
+        varchar franja_id FK
+        varchar turista_id
+        int personas
+        numeric precio_unitario_copiado
+        numeric total
+        int pol_horas_reembolso_total "política copiada"
+        varchar estado
+        timestamptz bloqueo_expira_en
+    }
+    PAGO {
+        varchar id PK
+        varchar reserva_id FK
+        varchar tipo "cobro o reembolso"
+        numeric monto
+        varchar estado
+        varchar referencia_pasarela
+    }
+    ENTRADA_LISTA_ESPERA {
+        varchar id PK
+        varchar franja_id FK
+        varchar turista_id
+        int personas
+        varchar estado
+    }
+    DISPUTA {
+        varchar id PK
+        varchar reserva_id FK
+        text motivo
+        varchar estado
+    }
+    NOTIFICACION {
+        varchar id PK
+        varchar reserva_id FK
+        varchar correo_destino
+        varchar idioma
+        boolean enviada
+    }
+    ASISTENTE {
+        varchar id PK
+        varchar reserva_id FK
+        varchar nombre_completo
+    }
+    PROYECCION_OFERTA_LOCAL {
+        varchar oferta_id PK
+        varchar nombre
+        boolean activa
+    }

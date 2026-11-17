@@ -1,0 +1,55 @@
+erDiagram
+    RECOMENDACION ||--|{ ITEM_RECOMENDADO : contiene
+    CONFIGURACION_CRITERIOS ||--o{ RECOMENDACION : "versión de pesos"
+    PROYECCION_OFERTA ||--o{ ITEM_RECOMENDADO : sugiere
+    ESTADO_ZONA ||--o{ PROYECCION_OFERTA : "ocupación de su zona"
+    UMBRAL_ZONA ||--o{ ALERTA_CAPACIDAD : dispara
+    UMBRAL_ZONA ||--o{ RESERVA_HECHO : "cuenta contra"
+    RECOMENDACION {
+        uuid id PK
+        varchar turista_id
+        jsonb intereses
+        int version_pesos
+    }
+    ITEM_RECOMENDADO {
+        uuid recomendacion_id FK
+        int posicion
+        varchar oferta_id
+        float puntaje
+        jsonb desglose "aporte de cada criterio"
+        varchar motivo
+    }
+    CONFIGURACION_CRITERIOS {
+        int version PK
+        jsonb pesos
+        float umbral_saturacion
+    }
+    PROYECCION_OFERTA {
+        varchar oferta_id PK
+        jsonb categorias
+        float calificacion_promedio
+        int reservas_confirmadas
+    }
+    ESTADO_ZONA {
+        varchar zona_id PK
+        float ocupacion
+    }
+    RESERVA_HECHO {
+        varchar evento_id PK
+        varchar reserva_id
+        varchar zona_id
+        int personas
+        date fecha_servicio
+        numeric total
+    }
+    UMBRAL_ZONA {
+        varchar zona_id PK
+        int visitantes_maximos
+        int periodo_dias
+    }
+    ALERTA_CAPACIDAD {
+        varchar id PK
+        varchar zona_id
+        numeric ocupacion
+        int umbral
+    }

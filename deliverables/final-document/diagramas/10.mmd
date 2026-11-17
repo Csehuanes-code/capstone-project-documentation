@@ -1,0 +1,29 @@
+flowchart TB
+    subgraph usuarios["Dispositivos de los usuarios"]
+        CEL["Celular / PC<br/>navegador + PWA instalada<br/>(service worker y caché de fotos)"]
+    end
+    LE["Let's Encrypt<br/>(certificado TLS)"]
+    subgraph azure["Microsoft Azure · Brazil South"]
+        subgraph nsg["Grupo de seguridad de red: entrada solo 22 (SSH), 80 y 443"]
+            subgraph vm["VM sierramar-demo · Ubuntu 24.04 · Standard_D2s_v4 (2 vCPU, 8 GiB)"]
+                subgraph docker["Docker Engine + Docker Compose (red interna)"]
+                    TR["gateway · Traefik v3.1<br/>:80 → redirige a :443<br/>:443 HTTPS"]
+                    FE["frontend · nginx<br/>PWA compilada"]
+                    AU["auth :8000"]
+                    CA["catalogo :8000"]
+                    RE["reservas :8003"]
+                    IA["ia :8000"]
+                    AN["analitica :8000"]
+                    MQ["rabbitmq :5672<br/>(sin puerto público)"]
+                    PG[("postgres 16 :5432<br/>5 bases · volumen persistente<br/>(sin puerto público)")]
+                    MP["mailpit · SMTP de la demo<br/>/correo con usuario y clave"]
+                end
+            end
+        end
+    end
+    CEL -- "HTTPS 443" --> TR
+    LE -. "reto HTTP-01 por :80" .-> TR
+    TR --> FE & AU & CA & RE & IA & AN & MP
+    AU & CA & RE & IA & AN --> PG
+    AU & CA & RE & IA & AN <--> MQ
+    RE --> MP
