@@ -14,6 +14,8 @@ import Confirmar from "./pages/Confirmar";
 import Prestador from "./pages/Prestador";
 import Admin from "./pages/Admin";
 import Creditos from "./pages/Creditos";
+import Arquitectura from "./pages/Arquitectura";
+import { BotonTema, useRecordatorios } from "./extras";
 import { Toasts } from "./ui";
 
 /** Tarjetas que se inclinan siguiendo el puntero ([data-tilt]) y brillo que lo sigue ([data-brillo]). */
@@ -95,6 +97,10 @@ export default function App() {
   const en = idioma === "en";
   useEffect(() => { window.scrollTo(0, 0); }, [pathname]);
   useEfectosPuntero();
+  // Recordatorios del navegador (si el turista los activó): tours de hoy y de mañana.
+  const [recordar, setRecordar] = useState(0);
+  useEffect(() => { const f = () => setRecordar((n) => n + 1); window.addEventListener("sierramar:recordatorios", f); return () => window.removeEventListener("sierramar:recordatorios", f); }, []);
+  useRecordatorios(usuario?.rol === "turista", en, recordar);
 
   const panel = usuario?.rol === "turista" ? { to: "/mis-reservas", texto: t("misReservas"), icono: "ticket" as const }
     : usuario?.rol === "prestador" ? { to: "/prestador", texto: t("panel"), icono: "panel" as const }
@@ -116,12 +122,14 @@ export default function App() {
             <a href="/#destinos">{en ? "Destinations" : "Destinos"}</a>
             <a href="/#para-ti">{t("paraTi")}</a>
             {panel && <NavLink to={panel.to}>{panel.texto}</NavLink>}
+            <NavLink to="/arquitectura" className="menu-vivo"><span className="en-vivo" aria-hidden="true" />{en ? "Live" : "En vivo"}</NavLink>
           </nav>
           <div className="acciones">
             <div className="segmento" role="group" aria-label="Idioma / Language">
               <button aria-pressed={!en} onClick={() => en && cambiar()}>ES</button>
               <button aria-pressed={en} onClick={() => !en && cambiar()}>EN</button>
             </div>
+            <BotonTema en={en} />
             {instalar && <button className="boton-texto" onClick={instalar} title={en ? "Install app" : "Instalar app"}>⤓</button>}
             {usuario ? (
               <>
@@ -150,6 +158,7 @@ export default function App() {
           <Route path="/registro" element={<Registro />} />
           <Route path="/confirmar" element={<Confirmar />} />
           <Route path="/creditos" element={<Creditos />} />
+          <Route path="/arquitectura" element={<Arquitectura />} />
           <Route path="/reservas/:id" element={<Protegida><ComprobantePagina /></Protegida>} />
           <Route path="/mis-reservas" element={<Protegida rol="turista"><MisReservas /></Protegida>} />
           <Route path="/prestador" element={<Protegida rol="prestador"><Prestador /></Protegida>} />
@@ -196,6 +205,7 @@ export default function App() {
               <li>Universidad del Magdalena</li>
               <li>{en ? "Systems Engineering" : "Ingeniería de Sistemas"}</li>
               <li>{en ? "Software Architecture 2026-II · Group 4" : "Arquitectura de Software 2026-II · Grupo 4"}</li>
+              <li><Link to="/arquitectura">{en ? "Live architecture" : "Arquitectura en vivo"}</Link></li>
             </ul>
           </div>
         </div>

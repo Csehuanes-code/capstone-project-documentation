@@ -9,7 +9,7 @@ from contextlib import asynccontextmanager
 from datetime import date
 from typing import Annotated
 
-from fastapi import Depends, FastAPI, HTTPException, Response
+from fastapi import Depends, FastAPI, HTTPException, Query, Response
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
@@ -136,3 +136,9 @@ def configurar_umbral(
 @app.get("/api/v1/analitica/alertas", tags=["CU-31"])
 def alertas_activas(_: Annotated[Identidad, Depends(administrador)]) -> list[dict[str, object]]:
     return repository.alertas_activas()
+
+
+@app.get("/api/v1/analitica/actividad", tags=["Operación"])
+def actividad(limite: Annotated[int, Query(ge=1, le=30)] = 8) -> dict[str, object]:
+    """Actividad reciente para la vista "Arquitectura en vivo": solo zona, personas y tiempos (sin datos personales)."""
+    return repository.actividad_reciente(limite)

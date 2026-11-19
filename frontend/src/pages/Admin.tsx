@@ -1,7 +1,8 @@
 import { useMemo, useState, type FormEvent } from "react";
 import { api, pesos, type Alerta, type Disputa, type Indicador, type Verificacion, type Zona } from "../api";
 import { foto } from "../fotos";
-import { Aviso, avisar, Estado, Insignia, tonoEstado, useCarga } from "../ui";
+import { Aviso, avisar, Contador, Estado, Insignia, tonoEstado, useCarga, Vacio } from "../ui";
+import { Barras, Dona } from "../graficas";
 
 const iso = (d: Date) => d.toISOString().slice(0, 10);
 
@@ -82,11 +83,24 @@ export default function Admin() {
       </Estado>
 
       <div className="kpis">
-        <div className="kpi"><span>Reservas</span><b>{totales.reservas}</b></div>
-        <div className="kpi"><span>Visitantes</span><b>{totales.visitantes}</b></div>
-        <div className="kpi"><span>Ingresos</span><b>{pesos(totales.ingresos).replace(" COP", "")}</b></div>
-        <div className="kpi"><span>Zonas con umbral</span><b>{(indicadores.datos ?? []).filter((i) => i.umbral_visitantes != null).length}</b></div>
+        <div className="kpi"><span>Reservas</span><b><Contador valor={indicadores.datos ? totales.reservas : null} /></b></div>
+        <div className="kpi"><span>Visitantes</span><b><Contador valor={indicadores.datos ? totales.visitantes : null} /></b></div>
+        <div className="kpi"><span>Ingresos</span><b><Contador valor={indicadores.datos ? totales.ingresos : null} formato={(n) => pesos(n).replace(" COP", "")} /></b></div>
+        <div className="kpi"><span>Zonas con umbral</span><b><Contador valor={indicadores.datos ? indicadores.datos.filter((i) => i.umbral_visitantes != null).length : null} /></b></div>
       </div>
+
+      {(indicadores.datos?.length ?? 0) > 0 && (
+        <div className="graficas-fila" key={`${desde}-${hasta}`}>
+          <div className="tarjeta">
+            <Dona titulo="¿Dónde se concentran los visitantes?" unidad="visitantes" centro={String(totales.visitantes)}
+              partes={indicadores.datos!.filter((i) => i.visitantes_reservados > 0).map((i) => ({ clave: i.zona_id, etiqueta: nombreZona(i.zona_id), valor: i.visitantes_reservados }))} />
+          </div>
+          <div className="tarjeta">
+            <Barras titulo="Ocupación estimada por zona (% de la capacidad diaria)" formato={(n) => `${n} %`}
+              datos={indicadores.datos!.map((i) => ({ clave: i.zona_id, etiqueta: nombreZona(i.zona_id), valor: Math.round((i.ocupacion_estimada ?? 0) * 100), resaltar: i.cerca_del_umbral }))} />
+          </div>
+        </div>
+      )}
 
       <section className="apilado">
         <div className="encabezado-seccion" style={{ margin: 0 }}>
@@ -107,7 +121,7 @@ export default function Admin() {
           </div>
         </div>
         <Estado carga={indicadores}>
-          {(is) => is.length === 0 ? <Aviso>Sin reservas en el período.</Aviso> : (
+          {(is) => is.length === 0 ? <Vacio titulo="Sin reservas en el período"><p>Prueba con otro rango de fechas.</p></Vacio> : (
             <div className="zonas-panel">
               {is.map((i) => {
                 const r = i.ocupacion_estimada;

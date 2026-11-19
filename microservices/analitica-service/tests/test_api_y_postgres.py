@@ -130,3 +130,17 @@ def test_csv_exportable(base: None) -> None:
     resp = cliente.get("/api/v1/analitica/indicadores.csv", headers=cabeceras("administrador"),
                        params={"desde": hoy, "hasta": hoy})
     assert resp.status_code == 200 and resp.text.startswith("﻿zona_id,")
+
+
+@requiere_postgres
+def test_actividad_publica_sin_datos_personales(base: None) -> None:
+    api.repository.guardar_umbral(UmbralZona("tayrona", 10))
+    r = reserva(4)
+    api.repository.procesar_reserva(r)
+    resp = cliente.get("/api/v1/analitica/actividad", params={"limite": 5})  # sin token: es pública
+    assert resp.status_code == 200
+    cuerpo = resp.json()
+    assert cuerpo["reservas"][0]["evento_id"] == r.evento_id and cuerpo["reservas"][0]["personas"] == 4
+    assert "reserva_id" not in cuerpo["reservas"][0] and "total" not in cuerpo["reservas"][0]
+    assert cuerpo["ocupaciones"][0]["zona_id"] == "tayrona"
+    assert cuerpo["outbox_pendientes"] >= 1
