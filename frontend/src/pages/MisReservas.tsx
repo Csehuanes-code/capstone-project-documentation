@@ -4,7 +4,7 @@ import { api, pesos, type Comprobante, type EntradaListaEspera } from "../api";
 import { fotosDeOferta } from "../fotos";
 import { useIdioma } from "../idioma";
 import { useSesion } from "../sesion";
-import { Aviso, Estado, Insignia, tonoEstado, useCarga } from "../ui";
+import { Aviso, avisar, Estado, Insignia, tonoEstado, useCarga } from "../ui";
 
 const ESTADOS = ["", "confirmada", "pendiente_pago", "cancelada", "expirada", "cancelacion_pendiente"];
 
@@ -24,7 +24,8 @@ export default function MisReservas() {
         body: { franja_id: e.franja_id, personas: e.personas, correo_turista: usuario?.email || "turista@turismo.co",
                 idioma, entrada_lista_espera_id: e.entrada_id, datos_pago: { numero_tarjeta: "4111111111111111" } },
       });
-      setMensaje({ tipo: r.pago_aprobado ? "ok" : "error", texto: idioma === "en" ? r.mensaje_en : r.mensaje_es });
+      const texto = idioma === "en" ? r.mensaje_en : r.mensaje_es;
+      if (r.pago_aprobado) avisar(texto); else setMensaje({ tipo: "error", texto });
       reservas.recargar(); lista.recargar();
     } catch (err) {
       setMensaje({ tipo: "error", texto: (err as Error).message });

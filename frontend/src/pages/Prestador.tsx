@@ -3,7 +3,7 @@ import { api, INTERESES, pesos, type Comprobante, type Oferta, type TipoServicio
 import { foto, fotosDeOferta } from "../fotos";
 import { useIdioma } from "../idioma";
 import { useSesion } from "../sesion";
-import { Aviso, Estado, Insignia, tonoEstado, useCarga } from "../ui";
+import { Aviso, avisar, Estado, Insignia, tonoEstado, useCarga } from "../ui";
 
 type Mensaje = { tipo: "ok" | "error"; texto: string } | null;
 type Pestana = "publicar" | "franja" | "verificacion";
@@ -36,7 +36,7 @@ export default function Prestador() {
     setMensaje(null);
     try {
       await fn();
-      setMensaje({ tipo: "ok", texto: ok });
+      avisar(ok);
       despues?.();
     } catch (e) {
       setMensaje({ tipo: "error", texto: (e as Error).message });

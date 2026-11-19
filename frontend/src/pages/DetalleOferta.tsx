@@ -1,13 +1,88 @@
-import { useMemo, useState, type FormEvent } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent, type ReactNode } from "react";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { api, ApiError, pesos, type Comprobante, type DetalleOferta, type Franja } from "../api";
 import { fotosDeOferta } from "../fotos";
 import { Icono } from "../ilustraciones";
 import { useIdioma } from "../idioma";
 import { useSesion } from "../sesion";
-import { Aviso, Estado, Insignia, useCarga } from "../ui";
+import { NOMBRE_FOTO } from "../transicion";
+import { Aviso, avisar, Estado, Insignia, useCarga } from "../ui";
 
 type DetalleConImagenes = DetalleOferta & { imagenes?: { clave_objeto: string }[] };
+
+const ESTILO_FOTO = { viewTransitionName: NOMBRE_FOTO } as CSSProperties;
+
+function isoLocal(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+/** Portada a sangre con parallax suave: la foto baja más lento que la página. */
+function PortadaDetalle({ foto, children }: { foto?: string; children: ReactNode }) {
+  const ref = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+    let cuadro = 0;
+    const mover = () => {
+      cancelAnimationFrame(cuadro);
+      cuadro = requestAnimationFrame(() => ref.current?.style.setProperty("--desplazar", String(Math.min(window.scrollY, 700) * 0.35)));
+    };
+    window.addEventListener("scroll", mover, { passive: true });
+    return () => { cancelAnimationFrame(cuadro); window.removeEventListener("scroll", mover); };
+  }, []);
+  return (
+    <section ref={ref} className="detalle-heroe a-sangre">
+      {foto && <img src={foto} alt="" style={ESTILO_FOTO} />}
+      <div className="detalle-heroe-texto">{children}</div>
+    </section>
+  );
+}
+
+/** Calendario del mes: resalta los días con cupo y muestra cuántos quedan. */
+function Calendario({ dias, elegida, onElegir, en }: {
+  dias: Map<string, number>; elegida: string; onElegir: (fecha: string) => void; en: boolean;
+}) {
+  const claves = [...dias.keys()].sort();
+  const hoy = isoLocal(new Date());
+  const [mes, setMes] = useState(() => (elegida || claves[0] || hoy).slice(0, 7));
+  const [a, m] = mes.split("-").map(Number);
+  const primero = new Date(a, m - 1, 1);
+  const hueco = (primero.getDay() + 6) % 7;
+  const total = new Date(a, m, 0).getDate();
+  const minimo = (claves[0] ?? hoy).slice(0, 7);
+  const maximo = (claves[claves.length - 1] ?? hoy).slice(0, 7);
+  const mover = (d: number) => { const n = new Date(a, m - 1 + d, 1); setMes(isoLocal(n).slice(0, 7)); };
+  const semana = en ? ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"] : ["Lu", "Ma", "Mi", "Ju", "Vi", "Sá", "Do"];
+  return (
+    <div className="calendario">
+      <div className="calendario-cabecera">
+        <button type="button" onClick={() => mover(-1)} disabled={mes <= minimo} aria-label={en ? "Previous month" : "Mes anterior"}>‹</button>
+        <strong>{(() => { const t = primero.toLocaleDateString(en ? "en-US" : "es-CO", { month: "long", year: "numeric" }).replace(" de ", " "); return t.charAt(0).toUpperCase() + t.slice(1); })()}</strong>
+        <button type="button" onClick={() => mover(1)} disabled={mes >= maximo} aria-label={en ? "Next month" : "Mes siguiente"}>›</button>
+      </div>
+      <div className="calendario-dias">
+        {semana.map((d) => <span key={d}>{d}</span>)}
+        {Array.from({ length: hueco }, (_, i) => <i key={`h${i}`} />)}
+        {Array.from({ length: total }, (_, i) => {
+          const fecha = `${mes}-${String(i + 1).padStart(2, "0")}`;
+          const cupo = dias.get(fecha);
+          const clase = ["dia", cupo ? "con-cupo" : "", cupo && cupo <= 3 ? "pocos" : "", fecha === elegida ? "elegido" : "", fecha === hoy ? "hoy" : ""].filter(Boolean).join(" ");
+          return (
+            <button key={fecha} type="button" className={clase} disabled={!cupo} aria-pressed={fecha === elegida}
+              aria-label={`${fecha}: ${cupo ? `${cupo} ${en ? "spots" : "cupos"}` : en ? "no spots" : "sin cupos"}`}
+              onClick={() => onElegir(fecha)}>
+              {i + 1}
+              {cupo ? <small>{cupo}</small> : null}
+            </button>
+          );
+        })}
+      </div>
+      <div className="calendario-pie">
+        <span><i />{en ? "Spots available (number left)" : "Con cupo (número disponible)"}</span>
+        <span><i className="pocos-i" />{en ? "Almost full" : "Últimos cupos"}</span>
+      </div>
+    </div>
+  );
+}
 
 export default function DetalleOfertaPagina() {
   const { id = "" } = useParams();
@@ -15,6 +90,7 @@ export default function DetalleOfertaPagina() {
   const en = idioma === "en";
   const { usuario } = useSesion();
   const navegar = useNavigate();
+  const previa = (useLocation().state ?? null) as { foto?: string; nombre?: string } | null;
   const [fecha, setFecha] = useState("");
   const [personas, setPersonas] = useState(1);
   const [franja, setFranja] = useState<Franja | null>(null);
@@ -23,26 +99,32 @@ export default function DetalleOfertaPagina() {
   const [acompanantes, setAcompanantes] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<{ texto: string; disponibles?: number } | null>(null);
-  const [aviso, setAviso] = useState<string | null>(null);
   // La misma clave en reintentos: si la red falla y el turista vuelve a pulsar, NO se cobra dos veces.
   const claveIdempotencia = useMemo(() => crypto.randomUUID(), [franja?.id, personas]);
 
   const detalle = useCarga(() => api<DetalleConImagenes>(`/api/v1/catalogo/ofertas/${id}`), [id]);
+  // Todas las franjas con cupo para ese número de personas: alimentan el calendario y los horarios del día.
   const franjas = useCarga(
-    () => api<Franja[]>(`/api/v1/ofertas/${id}/disponibilidad`, { query: { fecha, personas } }),
-    [id, fecha, personas],
+    () => api<Franja[]>(`/api/v1/ofertas/${id}/disponibilidad`, { query: { personas } }),
+    [id, personas],
   );
+  const cupoPorDia = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const f of franjas.datos ?? []) m.set(f.fecha, (m.get(f.fecha) ?? 0) + f.cupo_disponible);
+    return m;
+  }, [franjas.datos]);
+  const delDia = (franjas.datos ?? []).filter((f) => f.fecha === fecha);
   const cercanas = useCarga(
-    () => (fecha && franjas.datos?.length === 0
+    () => (fecha && franjas.datos && delDia.length === 0
       ? api<Franja[]>(`/api/v1/ofertas/${id}/disponibilidad/cercanas`, { query: { fecha, personas } })
       : Promise.resolve([] as Franja[])),
-    [id, fecha, personas, franjas.datos?.length],
+    [id, fecha, personas, franjas.datos, delDia.length],
   );
 
   async function reservar(e: FormEvent) {
     e.preventDefault();
     if (!franja) return;
-    setEnviando(true); setError(null); setAviso(null);
+    setEnviando(true); setError(null);
     try {
       const r = await api<Comprobante>("/api/v1/reservas", {
         method: "POST",
@@ -72,10 +154,29 @@ export default function DetalleOfertaPagina() {
         method: "POST", body: { personas, correo_turista: correo, idioma },
       });
       setError(null);
-      setAviso(`Quedaste en la lista de espera (posición ${r.posicion ?? "-"}). Te avisaremos por correo.`);
+      avisar(en
+        ? `You're on the waiting list (position ${r.posicion ?? "-"}). We'll email you.`
+        : `Quedaste en la lista de espera (posición ${r.posicion ?? "-"}). Te avisaremos por correo.`);
     } catch (err) {
-      setError({ texto: (err as Error).message });
+      avisar((err as Error).message, "error");
     }
+  }
+
+  function cambiarPersonas(n: number) {
+    setPersonas(Math.min(20, Math.max(1, n)));
+    setFranja(null);
+  }
+
+  // Mientras carga, la portada ya muestra la foto que "viajó" desde la tarjeta (transición de vista).
+  if (!detalle.datos && !detalle.error && previa?.foto) {
+    return (
+      <div className="apilado">
+        <PortadaDetalle foto={previa.foto}>
+          <h1>{previa.nombre}</h1>
+        </PortadaDetalle>
+        <Estado carga={detalle}>{() => null}</Estado>
+      </div>
+    );
   }
 
   return (
@@ -83,47 +184,100 @@ export default function DetalleOfertaPagina() {
       {(d) => {
         const o = d.oferta;
         const tarifa = d.tarifas[0];
-        const fotos = fotosDeOferta(o, d.zona?.codigo, d.imagenes).slice(0, 3);
+        const fotos = fotosDeOferta(o, d.zona?.codigo, d.imagenes).slice(0, 4);
+        const portada = previa?.foto ?? fotos[0];
+        const resto = fotos.filter((f) => f !== portada).slice(0, 3);
         const nombre = en ? o.nombre_en : o.nombre_es;
+        const zona = d.zona ? (en ? d.zona.nombre_en : d.zona.nombre_es) : null;
         const p = d.politica_cancelacion;
         return (
           <div className="apilado">
-            <div className="migas">
-              <Link to="/">{t("explorar")}</Link><span>/</span>
-              {d.zona && <><span>{en ? d.zona.nombre_en : d.zona.nombre_es}</span><span>/</span></>}
-              <span style={{ color: "var(--texto)" }}>{nombre}</span>
-            </div>
-
-            <div className="encabezado-seccion" style={{ margin: 0 }}>
-              <div>
-                <h1 style={{ margin: 0 }}>{nombre}</h1>
-                <div className="fila" style={{ marginTop: ".7rem" }}>
-                  {d.zona && <span className="lugar"><Icono n="lugar" />{en ? d.zona.nombre_en : d.zona.nombre_es}, Santa Marta</span>}
-                  <span className="tenue">·</span>
-                  <span>★ <strong>{o.total_calificaciones ? o.calificacion_promedio.toFixed(1) : (en ? "New" : "Nuevo")}</strong>
-                    {o.total_calificaciones > 0 && <span className="tenue"> ({o.total_calificaciones})</span>}</span>
-                  <span className="tenue">·</span>
-                  <span className="verificado"><Icono n="escudo" tam={14} />{en ? "Verified operator" : "Prestador verificado"}</span>
-                </div>
+            <PortadaDetalle foto={portada}>
+              <div className="migas">
+                <Link to="/">{t("explorar")}</Link><span>/</span>
+                {zona && <><span>{zona}</span><span>/</span></>}
+                <span>{nombre}</span>
               </div>
-            </div>
-
-            <div className={`galeria${fotos.length === 1 ? " una" : fotos.length === 2 ? " dos" : ""}`}>
-              {fotos.map((src, i) => <img key={src} src={src} alt={i === 0 ? nombre : ""} />)}
-            </div>
+              <h1>{nombre}</h1>
+              <div className="fila">
+                {zona && <span className="chip-vidrio"><Icono n="lugar" />{zona}, Santa Marta</span>}
+                <span className="chip-vidrio">★ <strong>{o.total_calificaciones ? o.calificacion_promedio.toFixed(1) : (en ? "New" : "Nuevo")}</strong>
+                  {o.total_calificaciones > 0 && <span style={{ opacity: .75 }}> ({o.total_calificaciones})</span>}</span>
+                {o.atributos.duracion_horas && <span className="chip-vidrio"><Icono n="reloj" />{o.atributos.duracion_horas} h</span>}
+                <span className="chip-vidrio"><Icono n="escudo" />{en ? "Verified operator" : "Prestador verificado"}</span>
+              </div>
+            </PortadaDetalle>
 
             <div className="columnas">
               <section className="apilado">
                 <div className="datos-clave">
                   {o.atributos.duracion_horas && <div className="dato"><span>{en ? "Duration" : "Duración"}</span><strong>{o.atributos.duracion_horas} h</strong></div>}
                   {(o.atributos.categorias ?? []).slice(0, 2).map((c) => <div key={c} className="dato"><span>{en ? "Type" : "Tipo"}</span><strong>{c.charAt(0).toUpperCase() + c.slice(1)}</strong></div>)}
-                  {d.zona && <div className="dato"><span>{t("zona")}</span><strong>{en ? d.zona.nombre_en : d.zona.nombre_es}</strong></div>}
+                  {zona && <div className="dato"><span>{t("zona")}</span><strong>{zona}</strong></div>}
                 </div>
 
                 <div>
                   <h2 style={{ fontSize: "1.5rem" }}>{en ? "About this experience" : "Sobre esta experiencia"}</h2>
                   <p style={{ fontSize: "1.05rem", margin: 0 }}>{en ? o.descripcion_en : o.descripcion_es}</p>
                 </div>
+
+                <div className="pila">
+                  <div className="fila entre" style={{ flexWrap: "wrap", gap: "1rem" }}>
+                    <h2 style={{ fontSize: "1.5rem", margin: 0 }}>{t("disponibilidad")}</h2>
+                    <div className="fila" style={{ gap: ".7rem" }}>
+                      <span className="tenue"><Icono n="personas" tam={18} /> {t("personas")}</span>
+                      <div className="contador-personas">
+                        <button type="button" onClick={() => cambiarPersonas(personas - 1)} disabled={personas <= 1} aria-label={en ? "One less" : "Una menos"}>−</button>
+                        <output aria-live="polite"><span key={personas}>{personas}</span></output>
+                        <button type="button" onClick={() => cambiarPersonas(personas + 1)} disabled={personas >= 20} aria-label={en ? "One more" : "Una más"}>+</button>
+                      </div>
+                    </div>
+                  </div>
+                  <Estado carga={franjas}>
+                    {(todas) => todas.length === 0 ? (
+                      <Aviso>{en ? "No upcoming dates with spots for that group size." : "No hay fechas próximas con cupo para ese número de personas."}</Aviso>
+                    ) : (
+                      <div className="pila">
+                        <Calendario dias={cupoPorDia} elegida={fecha} en={en} onElegir={(f) => { setFecha(f); setFranja(null); }} />
+                        {!fecha ? (
+                          <p className="tenue" style={{ margin: 0 }}><Icono n="calendario" tam={16} /> {en ? "Pick a highlighted day to see its time slots." : "Elige un día resaltado para ver sus horarios."}</p>
+                        ) : delDia.length === 0 ? (
+                          <div className="pila">
+                            <Aviso>{t("sinCupos")}</Aviso>
+                            {(cercanas.datos?.length ?? 0) > 0 && (
+                              <div className="pila">
+                                <p className="tenue" style={{ margin: 0 }}>{en ? "Nearby dates with spots:" : "Fechas cercanas con cupo:"}</p>
+                                <div className="franjas">
+                                  {cercanas.datos!.map((f) => (
+                                    <button key={f.id} className="boton-secundario" onClick={() => setFecha(f.fecha)}>
+                                      {f.fecha} · {f.hora_inicio.slice(0, 5)} · {f.cupo_disponible} {t("cupos")}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="franjas">
+                            {delDia.map((f) => (
+                              <div key={f.id} className="franja" role="button" tabIndex={0} aria-pressed={franja?.id === f.id}
+                                onClick={() => setFranja(f)} onKeyDown={(e) => e.key === "Enter" && setFranja(f)}>
+                                <span><strong>{f.hora_inicio.slice(0, 5)}</strong><br /><small className="tenue">{f.fecha}</small></span>
+                                <Insignia tono={f.cupo_disponible <= 2 ? "alerta" : "ok"}>{f.cupo_disponible} {t("cupos")}</Insignia>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </Estado>
+                </div>
+
+                {resto.length > 0 && (
+                  <div className="galeria-mini">
+                    {resto.map((src) => <img key={src} src={src} alt="" loading="lazy" />)}
+                  </div>
+                )}
 
                 {p && (
                   <div>
@@ -135,54 +289,20 @@ export default function DetalleOfertaPagina() {
                     </div>
                   </div>
                 )}
-
-                <div>
-                  <h2 style={{ fontSize: "1.5rem" }}>{t("disponibilidad")}</h2>
-                  <div className="campos" style={{ marginBottom: "1rem" }}>
-                    <label>{t("fecha")}<input type="date" value={fecha} onChange={(e) => { setFecha(e.target.value); setFranja(null); }} /></label>
-                    <label>{t("personas")}
-                      <input type="number" min={1} max={20} value={personas}
-                        onChange={(e) => { setPersonas(Math.max(1, Number(e.target.value))); setFranja(null); }} />
-                    </label>
-                  </div>
-                  <Estado carga={franjas}>
-                    {(lista) => lista.length === 0 ? (
-                      <div className="pila">
-                        <Aviso>{t("sinCupos")}</Aviso>
-                        {(cercanas.datos?.length ?? 0) > 0 && (
-                          <div className="pila">
-                            <p className="tenue" style={{ margin: 0 }}>{en ? "Nearby dates with spots:" : "Fechas cercanas con cupo:"}</p>
-                            <div className="franjas">
-                              {cercanas.datos!.map((f) => (
-                                <button key={f.id} className="boton-secundario" onClick={() => setFecha(f.fecha)}>
-                                  {f.fecha} · {f.hora_inicio} · {f.cupo_disponible} {t("cupos")}
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="franjas">
-                        {lista.map((f) => (
-                          <div key={f.id} className="franja" role="button" tabIndex={0} aria-pressed={franja?.id === f.id}
-                            onClick={() => setFranja(f)} onKeyDown={(e) => e.key === "Enter" && setFranja(f)}>
-                            <span><strong>{f.hora_inicio.slice(0, 5)}</strong><br /><small className="tenue">{f.fecha}</small></span>
-                            <Insignia tono={f.cupo_disponible <= 2 ? "alerta" : "ok"}>{f.cupo_disponible} {t("cupos")}</Insignia>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </Estado>
-                </div>
               </section>
 
-              <aside className="tarjeta reserva-caja pila">
+              <aside className="tarjeta reserva-caja vidrio pila">
                 {tarifa && (
                   <div>
                     <div className="tarifa-etq">{en ? "From" : "Desde"}</div>
                     <span className="precio">{pesos(tarifa.precio_por_persona, tarifa.moneda)}</span>
                     <span className="tenue"> {t("porPersona")}</span>
+                  </div>
+                )}
+                {tarifa && (
+                  <div className="fila entre">
+                    <span className="tenue">{personas} × {pesos(tarifa.precio_por_persona, tarifa.moneda)}</span>
+                    <strong key={personas} className="total-animado">{pesos(tarifa.precio_por_persona * personas, tarifa.moneda)}</strong>
                   </div>
                 )}
                 {!usuario ? (
@@ -198,7 +318,7 @@ export default function DetalleOfertaPagina() {
                   <form className="formulario" onSubmit={reservar}>
                     <div className="dato">
                       <span>{en ? "Your booking" : "Tu reserva"}</span>
-                      <strong>{franja.fecha} · {franja.hora_inicio.slice(0, 5)} · {personas} {t("personas").toLowerCase()}</strong>
+                      <strong>{franja.fecha} · {franja.hora_inicio.slice(0, 5)} · {personas} {personas === 1 ? (en ? "guest" : "persona") : t("personas").toLowerCase()}</strong>
                     </div>
                     {tarifa && <div className="fila entre"><span>{t("total")}</span><span className="precio" style={{ fontSize: "1.5rem" }}>{pesos(tarifa.precio_por_persona * personas)}</span></div>}
                     <label>{t("correo")}<input type="email" required value={correo} onChange={(e) => setCorreo(e.target.value)} /></label>
@@ -222,7 +342,6 @@ export default function DetalleOfertaPagina() {
                     )}
                   </Aviso>
                 )}
-                {aviso && <Aviso tipo="ok">{aviso}</Aviso>}
                 <div className="fila tenue" style={{ fontSize: ".82rem", gap: ".4rem" }}>
                   <Icono n="escudo" tam={16} />{en ? "Secure payment · no overbooking" : "Pago seguro · sin sobreventa"}
                 </div>

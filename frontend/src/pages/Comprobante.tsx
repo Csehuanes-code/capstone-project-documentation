@@ -6,7 +6,7 @@ import { api, pesos, type Comprobante } from "../api";
 import { fotosDeOferta } from "../fotos";
 import { useIdioma } from "../idioma";
 import { useSesion } from "../sesion";
-import { Aviso, Estado, Insignia, tonoEstado, useCarga } from "../ui";
+import { Aviso, avisar, Estado, Insignia, tonoEstado, useCarga } from "../ui";
 
 /** QR del comprobante como SVG (un rectángulo por módulo oscuro). */
 function CodigoQR({ texto }: { texto: string }) {
@@ -76,7 +76,7 @@ export default function ComprobantePagina() {
     setMensaje(null);
     try {
       await fn();
-      setMensaje({ tipo: "ok", texto: ok });
+      avisar(ok);
       reserva.recargar();
     } catch (e) {
       setMensaje({ tipo: "error", texto: (e as Error).message });

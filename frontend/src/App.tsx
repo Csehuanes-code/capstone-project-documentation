@@ -14,6 +14,42 @@ import Confirmar from "./pages/Confirmar";
 import Prestador from "./pages/Prestador";
 import Admin from "./pages/Admin";
 import Creditos from "./pages/Creditos";
+import { Toasts } from "./ui";
+
+/** Tarjetas que se inclinan siguiendo el puntero ([data-tilt]) y brillo que lo sigue ([data-brillo]). */
+function useEfectosPuntero() {
+  useEffect(() => {
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches || !window.matchMedia?.("(hover: hover)").matches) return;
+    let activa: HTMLElement | null = null;
+    const soltar = () => {
+      if (activa) { activa.style.removeProperty("--rx"); activa.style.removeProperty("--ry"); activa.classList.remove("inclinada"); activa = null; }
+    };
+    const mover = (e: PointerEvent) => {
+      const objetivo = e.target as Element | null;
+      const brillo = objetivo?.closest?.("[data-brillo]") as HTMLElement | null;
+      if (brillo) {
+        const r = brillo.getBoundingClientRect();
+        brillo.style.setProperty("--mx", `${e.clientX - r.left}px`);
+        brillo.style.setProperty("--my", `${e.clientY - r.top}px`);
+      }
+      const tarjeta = objetivo?.closest?.("[data-tilt]") as HTMLElement | null;
+      if (tarjeta !== activa) soltar();
+      if (!tarjeta) return;
+      activa = tarjeta;
+      const r = tarjeta.getBoundingClientRect();
+      const x = (e.clientX - r.left) / r.width;
+      const y = (e.clientY - r.top) / r.height;
+      tarjeta.classList.add("inclinada");
+      tarjeta.style.setProperty("--rx", `${(0.5 - y) * 8}deg`);
+      tarjeta.style.setProperty("--ry", `${(x - 0.5) * 10}deg`);
+      tarjeta.style.setProperty("--gx", `${x * 100}%`);
+      tarjeta.style.setProperty("--gy", `${y * 100}%`);
+    };
+    document.addEventListener("pointermove", mover, { passive: true });
+    document.addEventListener("pointerleave", soltar);
+    return () => { document.removeEventListener("pointermove", mover); document.removeEventListener("pointerleave", soltar); };
+  }, []);
+}
 
 function Protegida({ rol, children }: { rol?: Rol; children: ReactNode }) {
   const { usuario } = useSesion();
@@ -58,6 +94,7 @@ export default function App() {
   const sobreFoto = useSobreFoto(enInicio);
   const en = idioma === "en";
   useEffect(() => { window.scrollTo(0, 0); }, [pathname]);
+  useEfectosPuntero();
 
   const panel = usuario?.rol === "turista" ? { to: "/mis-reservas", texto: t("misReservas"), icono: "ticket" as const }
     : usuario?.rol === "prestador" ? { to: "/prestador", texto: t("panel"), icono: "panel" as const }
@@ -122,6 +159,7 @@ export default function App() {
         </div>
       </main>
 
+      <Toasts />
       <nav className="barra-movil" aria-label={en ? "Quick navigation" : "Navegación rápida"}>
         <NavLink to="/" end><Icono n="brujula" />{t("explorar")}</NavLink>
         {panel

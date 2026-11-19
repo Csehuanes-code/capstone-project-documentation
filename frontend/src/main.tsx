@@ -6,6 +6,7 @@ import { ProveedorIdioma } from "./idioma";
 import { ProveedorSesion } from "./sesion";
 import "./estilos.css";
 import "./estilos-v2.css";
+import "./estilos-v3.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
@@ -18,3 +19,12 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
     </BrowserRouter>
   </React.StrictMode>,
 );
+
+// Pantalla de bienvenida: se desvanece cuando la app ya pintó (mínimo ~0,65 s desde que abrió la página).
+const splash = document.getElementById("splash");
+if (splash) {
+  setTimeout(() => {
+    splash.classList.add("fuera");
+    setTimeout(() => splash.remove(), 700);
+  }, Math.max(0, 650 - performance.now()));
+}

@@ -48,3 +48,59 @@ export function tonoEstado(estado: string): "neutro" | "ok" | "alerta" | "peligr
   if (["cancelada", "expirada", "rechazada"].includes(estado)) return "peligro";
   return "neutro";
 }
+
+// ---------------- Notificaciones flotantes ----------------
+
+type Toast = { id: number; texto: string; tipo: "ok" | "error" };
+
+/** Muestra una notificación flotante desde cualquier parte de la app. */
+export function avisar(texto: string, tipo: "ok" | "error" = "ok") {
+  window.dispatchEvent(new CustomEvent<Omit<Toast, "id">>("sierramar:toast", { detail: { texto, tipo } }));
+}
+
+export function Toasts() {
+  const [lista, setLista] = useState<Toast[]>([]);
+  useEffect(() => {
+    let n = 0;
+    const escuchar = (e: Event) => {
+      const { texto, tipo } = (e as CustomEvent<Omit<Toast, "id">>).detail;
+      const id = ++n;
+      setLista((l) => [...l.slice(-2), { id, texto, tipo }]);
+      setTimeout(() => setLista((l) => l.filter((t) => t.id !== id)), 4200);
+    };
+    window.addEventListener("sierramar:toast", escuchar);
+    return () => window.removeEventListener("sierramar:toast", escuchar);
+  }, []);
+  return (
+    <div className="toasts" role="status" aria-live="polite">
+      {lista.map((t) => (
+        <div key={t.id} className={`toast toast-${t.tipo}`} onClick={() => setLista((l) => l.filter((x) => x.id !== t.id))}>
+          <span className="toast-icono" aria-hidden="true">{t.tipo === "ok" ? "✓" : "!"}</span>
+          <span>{t.texto}</span>
+          <i className="toast-barra" aria-hidden="true" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ---------------- Contador animado ----------------
+
+/** Número que sube desde 0 hasta el valor real (sin animación si el usuario pide menos movimiento). */
+export function Contador({ valor }: { valor: number | null | undefined }) {
+  const [mostrado, setMostrado] = useState(0);
+  useEffect(() => {
+    if (valor == null) return;
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) { setMostrado(valor); return; }
+    const inicio = performance.now();
+    let cuadro = 0;
+    const paso = (ahora: number) => {
+      const t = Math.min(1, (ahora - inicio) / 1400);
+      setMostrado(Math.round(valor * (1 - Math.pow(1 - t, 3))));
+      if (t < 1) cuadro = requestAnimationFrame(paso);
+    };
+    cuadro = requestAnimationFrame(paso);
+    return () => cancelAnimationFrame(cuadro);
+  }, [valor]);
+  return <>{valor == null ? "—" : mostrado}</>;
+}
