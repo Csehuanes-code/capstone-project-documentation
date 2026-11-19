@@ -2,12 +2,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { CREDITOS, type ClaveFoto } from "../fotos";
 import { irConFoto } from "../transicion";
+import { AvisoReciente, BotonFavorito, ChipClima, useClima, useFavoritos, useFlip } from "../extras";
 import { api, INTERESES, pesos, type DetalleOferta, type ItemRecomendado, type Oferta, type Recomendacion, type Zona } from "../api";
 import { FOTO_ZONA, LEMA_ZONA, foto, fotosDeOferta } from "../fotos";
 import { Icono } from "../ilustraciones";
 import MapaZonas, { type EstadoZona } from "../MapaZonas";
 import { useIdioma } from "../idioma";
-import { Aviso, Contador, Estado, Insignia, useCarga } from "../ui";
+import { Aviso, Contador, Estado, Insignia, useCarga, Vacio } from "../ui";
 
 // Portada: cada foto con la palabra que completa el título.
 const PORTADAS: { foto: ClaveFoto; es: string; en: string; lugar: [string, string] }[] = [
@@ -181,7 +182,7 @@ export default function Inicio() {
   );
   // El listado no trae tarifa ni imágenes: se completan con el detalle de cada oferta.
   const catalogo = useCarga(async () => {
-    const r = await api<{ items: Oferta[]; total: number }>("/api/v1/catalogo/ofertas", { query: { categoria, limit: 50, idioma } });
+    const r = await api<{ items: Oferta[]; total: number }>("/api/v1/catalogo/ofertas", { query: { limit: 50, idioma } });
     return Promise.all(r.items.map(async (o): Promise<OfertaEnriquecida> => {
       try {
         const d = await api<DetalleOferta & { imagenes?: { clave_objeto: string }[] }>(`/api/v1/catalogo/ofertas/${o.id}`);
@@ -192,19 +193,26 @@ export default function Inicio() {
         return { ...o, desde: null, moneda: "COP", fotos: fotosDeOferta(o) };
       }
     }));
-  }, [categoria, idioma]);
+  }, [idioma]);
 
   const zonaPorId = (id: string) => zonas.datos?.find((z) => z.id === id);
   const aforoDe = (id: string) => aforos.datos?.find((a) => a.oferta_id === id);
   const alternar = (i: string) => setIntereses((act) => (act.includes(i) ? act.filter((x) => x !== i) : [...act, i]));
   const reservasTotales = (aforos.datos ?? []).reduce((s, a) => s + a.reservas_confirmadas, 0);
 
+  const { favoritos } = useFavoritos();
+  const [soloFavoritos, setSoloFavoritos] = useState(false);
+  const clima = useClima();
+  const porCategoria = (c: string) => (catalogo.datos ?? []).filter((o) => o.atributos.categorias?.includes(c)).length;
   const visibles = useMemo(() => {
     const q = busqueda.trim().toLowerCase();
     return (catalogo.datos ?? []).filter((o) =>
+      (!categoria || o.atributos.categorias?.includes(categoria)) &&
+      (!soloFavoritos || favoritos.includes(o.id)) &&
       (!zonaFiltro || o.zona_id === zonaFiltro) &&
       (!q || [o.nombre_es, o.nombre_en, o.descripcion_es, o.descripcion_en].join(" ").toLowerCase().includes(q)));
-  }, [catalogo.datos, busqueda, zonaFiltro]);
+  }, [catalogo.datos, busqueda, zonaFiltro, categoria, soloFavoritos, favoritos]);
+  const rejilla = useFlip<HTMLDivElement>(visibles.map((o) => o.id).join(","));
 
   const destinos = useMemo(() => {
     const lista = (zonas.datos ?? []).filter((z) => FOTO_ZONA[z.codigo]);
@@ -342,6 +350,7 @@ export default function Inicio() {
               <button key={z.id} className={`destino aparece${pronto ? " proximamente" : ""}`} aria-pressed={zonaFiltro === z.id}
                 onClick={() => { if (pronto) return; setZonaFiltro(zonaFiltro === z.id ? "" : z.id); irAlCatalogo(); }}>
                 <img src={foto(FOTO_ZONA[z.codigo])} alt="" loading="lazy" />
+                <ChipClima clima={clima[z.codigo]} en={en} />
                 <span className="destino-texto">
                   <strong>{en ? z.nombre_en : z.nombre_es}</strong>
                   <span>{LEMA_ZONA[z.codigo]?.[en ? 1 : 0]}</span>
@@ -424,18 +433,37 @@ export default function Inicio() {
             {busqueda && <button className="boton-texto" onClick={() => { setBusqueda(""); setTexto(""); }}>✕ «{busqueda}»</button>}
           </div>
         </div>
-        <div className="chips" style={{ marginBottom: "1.6rem" }}>
-          <button className="chip" aria-pressed={categoria === ""} onClick={() => setCategoria("")}>{en ? "All" : "Todas"}</button>
-          {INTERESES.map((i) => (
-            <button key={i} className="chip" aria-pressed={categoria === i} onClick={() => setCategoria(i)}>
-              {en ? CATEGORIA_EN[i] : i}
+        <div className="chips chips-filtro" style={{ marginBottom: "1.6rem" }}>
+          <button className="chip" aria-pressed={categoria === "" && !soloFavoritos} onClick={() => { setCategoria(""); setSoloFavoritos(false); }}>
+            {en ? "All" : "Todas"}<span className="chip-cuenta">{catalogo.datos?.length ?? 0}</span>
+          </button>
+          {INTERESES.filter((i) => porCategoria(i) > 0).map((i) => (
+            <button key={i} className="chip" aria-pressed={categoria === i} onClick={() => setCategoria(categoria === i ? "" : i)}>
+              {en ? CATEGORIA_EN[i] : i}<span className="chip-cuenta">{porCategoria(i)}</span>
             </button>
           ))}
+          <button className={`chip chip-favoritos${soloFavoritos ? " activo" : ""}`} aria-pressed={soloFavoritos} onClick={() => setSoloFavoritos(!soloFavoritos)}>
+            <Icono n="corazon" tam={15} />{en ? "Favorites" : "Favoritos"}<span className="chip-cuenta">{favoritos.length}</span>
+          </button>
         </div>
         <Estado carga={catalogo}>
-          {() => visibles.length === 0 ? <Aviso>{t("vacio")}</Aviso> : (
-            <div className="rejilla">
-              {visibles.map((o) => <div key={o.id} className="aparece" style={{ display: "grid" }}><TarjetaOferta o={o} zona={zonaPorId(o.zona_id)} aforo={aforoDe(o.id)} /></div>)}
+          {() => visibles.length === 0 ? (
+            soloFavoritos
+              ? <Vacio tipo="favoritos" titulo={en ? "No favorites yet" : "Aún no tienes favoritos"}>
+                  <p>{en ? "Tap the heart on any experience to save it here." : "Toca el corazón de cualquier experiencia para guardarla aquí."}</p>
+                </Vacio>
+              : <Vacio titulo={en ? "Nothing matches that search" : "Nada coincide con esa búsqueda"}>
+                  <p>{en ? "Try another category or destination." : "Prueba con otra categoría o destino."}</p>
+                  <button type="button" className="boton-secundario" onClick={() => { setCategoria(""); setZonaFiltro(""); setBusqueda(""); setTexto(""); }}>{en ? "Clear filters" : "Quitar filtros"}</button>
+                </Vacio>
+          ) : (
+            <div className="rejilla" ref={rejilla} style={{ position: "relative" }}>
+              {visibles.map((o) => (
+                <div key={o.id} data-flip={o.id} className="aparece envoltura-oferta">
+                  <TarjetaOferta o={o} zona={zonaPorId(o.zona_id)} aforo={aforoDe(o.id)} />
+                  <BotonFavorito id={o.id} nombre={en ? o.nombre_en : o.nombre_es} en={en} />
+                </div>
+              ))}
             </div>
           )}
         </Estado>
@@ -462,6 +490,8 @@ export default function Inicio() {
           ))}
         </div>
       </section>
+
+      <AvisoReciente en={en} />
 
       <section className="seccion pilares aparece">
         <img src={foto("sierra")} alt="" loading="lazy" />

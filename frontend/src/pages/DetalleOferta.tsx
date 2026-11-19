@@ -6,6 +6,7 @@ import { Icono } from "../ilustraciones";
 import { useIdioma } from "../idioma";
 import { useSesion } from "../sesion";
 import { NOMBRE_FOTO } from "../transicion";
+import { BotonFavorito, ChipClima, Galeria, useClima } from "../extras";
 import { Aviso, avisar, Estado, Insignia, useCarga } from "../ui";
 
 type DetalleConImagenes = DetalleOferta & { imagenes?: { clave_objeto: string }[] };
@@ -17,7 +18,7 @@ function isoLocal(d: Date) {
 }
 
 /** Portada a sangre con parallax suave: la foto baja más lento que la página. */
-function PortadaDetalle({ foto, children }: { foto?: string; children: ReactNode }) {
+function PortadaDetalle({ foto, children, alAbrir, textoFotos = "Ver fotos" }: { foto?: string; children: ReactNode; alAbrir?: () => void; textoFotos?: string }) {
   const ref = useRef<HTMLElement>(null);
   useEffect(() => {
     if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
@@ -32,6 +33,11 @@ function PortadaDetalle({ foto, children }: { foto?: string; children: ReactNode
   return (
     <section ref={ref} className="detalle-heroe a-sangre">
       {foto && <img src={foto} alt="" style={ESTILO_FOTO} />}
+      {alAbrir && (
+        <button type="button" className="ver-fotos" onClick={alAbrir}>
+          <Icono n="panel" tam={16} /> {textoFotos}
+        </button>
+      )}
       <div className="detalle-heroe-texto">{children}</div>
     </section>
   );
@@ -90,6 +96,8 @@ export default function DetalleOfertaPagina() {
   const en = idioma === "en";
   const { usuario } = useSesion();
   const navegar = useNavigate();
+  const [galeria, setGaleria] = useState<number | null>(null);
+  const clima = useClima();
   const previa = (useLocation().state ?? null) as { foto?: string; nombre?: string } | null;
   const [fecha, setFecha] = useState("");
   const [personas, setPersonas] = useState(1);
@@ -187,23 +195,29 @@ export default function DetalleOfertaPagina() {
         const fotos = fotosDeOferta(o, d.zona?.codigo, d.imagenes).slice(0, 4);
         const portada = previa?.foto ?? fotos[0];
         const resto = fotos.filter((f) => f !== portada).slice(0, 3);
+        const todas = [portada, ...resto].filter(Boolean) as string[];
         const nombre = en ? o.nombre_en : o.nombre_es;
         const zona = d.zona ? (en ? d.zona.nombre_en : d.zona.nombre_es) : null;
         const p = d.politica_cancelacion;
         return (
           <div className="apilado">
-            <PortadaDetalle foto={portada}>
+            {galeria !== null && <Galeria fotos={todas} inicio={galeria} titulo={nombre} alCerrar={() => setGaleria(null)} />}
+            <PortadaDetalle foto={portada} alAbrir={() => setGaleria(0)} textoFotos={en ? `See photos (${todas.length})` : `Ver fotos (${todas.length})`}>
               <div className="migas">
                 <Link to="/">{t("explorar")}</Link><span>/</span>
                 {zona && <><span>{zona}</span><span>/</span></>}
                 <span>{nombre}</span>
               </div>
-              <h1>{nombre}</h1>
+              <div className="fila" style={{ alignItems: "flex-end", justifyContent: "space-between" }}>
+                <h1>{nombre}</h1>
+                <BotonFavorito id={o.id} nombre={nombre} en={en} />
+              </div>
               <div className="fila">
                 {zona && <span className="chip-vidrio"><Icono n="lugar" />{zona}, Santa Marta</span>}
                 <span className="chip-vidrio">★ <strong>{o.total_calificaciones ? o.calificacion_promedio.toFixed(1) : (en ? "New" : "Nuevo")}</strong>
                   {o.total_calificaciones > 0 && <span style={{ opacity: .75 }}> ({o.total_calificaciones})</span>}</span>
                 {o.atributos.duracion_horas && <span className="chip-vidrio"><Icono n="reloj" />{o.atributos.duracion_horas} h</span>}
+                {d.zona && clima[d.zona.codigo] && <span className="chip-vidrio"><ChipClima clima={clima[d.zona.codigo]} en={en} completo /></span>}
                 <span className="chip-vidrio"><Icono n="escudo" />{en ? "Verified operator" : "Prestador verificado"}</span>
               </div>
             </PortadaDetalle>
@@ -275,7 +289,11 @@ export default function DetalleOfertaPagina() {
 
                 {resto.length > 0 && (
                   <div className="galeria-mini">
-                    {resto.map((src) => <img key={src} src={src} alt="" loading="lazy" />)}
+                    {resto.map((src, n) => (
+                      <button key={src} type="button" className="mini-foto" onClick={() => setGaleria(n + 1)} aria-label={`${en ? "Open photo" : "Abrir foto"} ${n + 2}`}>
+                        <img src={src} alt="" loading="lazy" />
+                      </button>
+                    ))}
                   </div>
                 )}
 

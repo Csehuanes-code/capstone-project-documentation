@@ -4,9 +4,13 @@ import { BrowserRouter } from "react-router-dom";
 import App from "./App";
 import { ProveedorIdioma } from "./idioma";
 import { ProveedorSesion } from "./sesion";
+import { aplicarTemaGuardado } from "./extras";
 import "./estilos.css";
 import "./estilos-v2.css";
 import "./estilos-v3.css";
+import "./estilos-v4.css";
+
+aplicarTemaGuardado();
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>

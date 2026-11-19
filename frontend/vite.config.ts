@@ -24,6 +24,8 @@ export default defineConfig({
         // La API nunca se cachea: reservas y cupos deben ser siempre los reales.
         // /correo es el buzón de la demo (Mailpit) detrás del gateway: no lo atiende la PWA.
         navigateFallbackDenylist: [/^\/api\//, /^\/\.well-known\//, /^\/correo/],
+        // Recordatorios: al tocar la notificación se abre la reserva.
+        importScripts: ["/sw-avisos.js"],
         runtimeCaching: [
           { urlPattern: ({ url }) => url.pathname.startsWith("/api/"), handler: "NetworkOnly" },
           // Fotos de destinos: se guardan al verlas por primera vez (la app sigue luciendo bien sin conexión).

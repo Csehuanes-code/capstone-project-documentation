@@ -23,12 +23,57 @@ export function Aviso({ tipo = "info", children }: { tipo?: "info" | "ok" | "err
   return <div className={`aviso aviso-${tipo}`} role={tipo === "error" ? "alert" : "status"}>{children}</div>;
 }
 
+/** Estado vacío o de error con una ilustración: más amable que un texto suelto. */
+export function Vacio({ tipo = "vacio", titulo, children }: { tipo?: "vacio" | "error" | "favoritos"; titulo: string; children?: ReactNode }) {
+  return (
+    <div className={`vacio vacio-${tipo}`} role={tipo === "error" ? "alert" : "status"}>
+      <svg viewBox="0 0 200 140" aria-hidden="true">
+        <defs>
+          <linearGradient id={`vacio-cielo-${tipo}`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor={tipo === "error" ? "#5b6b78" : "#bfeee7"} />
+            <stop offset="1" stopColor={tipo === "error" ? "#9aa9b3" : "#fff3dc"} />
+          </linearGradient>
+        </defs>
+        <rect x="10" y="8" width="180" height="124" rx="28" fill={`url(#vacio-cielo-${tipo})`} />
+        {tipo === "error" ? (
+          <g className="vacio-nube">
+            <path d="M62 70h70a18 18 0 0 0 2-36 26 26 0 0 0-50 6 15 15 0 0 0-22 30Z" fill="#eef3f6" />
+            <path d="M104 74 92 96h12l-6 20 20-28h-12l8-14Z" fill="#f5a245" className="vacio-rayo" />
+          </g>
+        ) : (
+          <g>
+            <circle cx="146" cy="42" r="14" fill="#f5a245" className="vacio-sol" />
+            {tipo === "favoritos"
+              ? <path d="M100 104s-26-16-26-35a14 14 0 0 1 26-8 14 14 0 0 1 26 8c0 19-26 35-26 35Z" fill="none" stroke="#ff7a59" strokeWidth="5" strokeLinejoin="round" className="vacio-corazon" />
+              : <>
+                  <path d="M62 104c2-22 10-38 18-48" stroke="#7a5a3a" strokeWidth="5" fill="none" strokeLinecap="round" />
+                  <g className="vacio-palma" fill="#2e9d63">
+                    <path d="M80 56c-12-8-26-6-32 2 12-2 22 0 32-2Z" /><path d="M80 56c4-14 16-20 26-18-10 6-18 10-26 18Z" />
+                    <path d="M80 56c12-4 24 0 30 8-12-2-20-4-30-8Z" /><path d="M80 56c-8 4-14 14-14 22 6-8 10-14 14-22Z" />
+                  </g>
+                  <ellipse cx="78" cy="106" rx="34" ry="7" fill="#e8d3a8" />
+                </>}
+            <path d="M10 112c20-8 40 8 60 0s40-8 60 0 40 8 60 0v20H10Z" fill="#5fd3c6" opacity=".8" className="vacio-ola" />
+          </g>
+        )}
+      </svg>
+      <strong>{titulo}</strong>
+      {children && <div className="vacio-texto">{children}</div>}
+    </div>
+  );
+}
+
 export function Estado<T>({ carga, children }: {
-  carga: { datos: T | null; error: string | null; cargando: boolean };
+  carga: { datos: T | null; error: string | null; cargando: boolean; recargar?: () => void };
   children: (datos: T) => ReactNode;
 }) {
-  const { t } = useIdioma();
-  if (carga.error) return <Aviso tipo="error">{carga.error}</Aviso>;
+  const { t, idioma } = useIdioma();
+  if (carga.error) return (
+    <Vacio tipo="error" titulo={idioma === "en" ? "We couldn't load this" : "No pudimos cargar esto"}>
+      <p>{carga.error}</p>
+      {carga.recargar && <button type="button" className="boton-secundario" onClick={carga.recargar}>{idioma === "en" ? "Try again" : "Reintentar"}</button>}
+    </Vacio>
+  );
   if (carga.cargando && carga.datos === null) return (
     <div className="esqueletos" role="status" aria-label={t("cargando")}>
       {[0, 1, 2].map((i) => <div key={i} className="esqueleto" aria-hidden="true"><i /><i /><i /><i /></div>)}
@@ -87,7 +132,7 @@ export function Toasts() {
 // ---------------- Contador animado ----------------
 
 /** Número que sube desde 0 hasta el valor real (sin animación si el usuario pide menos movimiento). */
-export function Contador({ valor }: { valor: number | null | undefined }) {
+export function Contador({ valor, formato = String }: { valor: number | null | undefined; formato?: (n: number) => string }) {
   const [mostrado, setMostrado] = useState(0);
   useEffect(() => {
     if (valor == null) return;
@@ -102,5 +147,5 @@ export function Contador({ valor }: { valor: number | null | undefined }) {
     cuadro = requestAnimationFrame(paso);
     return () => cancelAnimationFrame(cuadro);
   }, [valor]);
-  return <>{valor == null ? "—" : mostrado}</>;
+  return <>{valor == null ? "—" : formato(mostrado)}</>;
 }

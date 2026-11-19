@@ -3,7 +3,7 @@
 import type { Zona } from "./api";
 import { useIdioma } from "./idioma";
 
-const REFERENCIA: Record<string, [number, number]> = {
+export const REFERENCIA: Record<string, [number, number]> = {
   rodadero: [11.2006, -74.2296], centro: [11.2408, -74.211], taganga: [11.2672, -74.1907],
   tayrona: [11.33, -74.035], "los-naranjos": [11.3, -73.92], minca: [11.143, -74.119],
 };

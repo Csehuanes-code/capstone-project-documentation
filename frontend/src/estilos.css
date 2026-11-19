@@ -28,8 +28,9 @@
   background: var(--fondo);
   -webkit-font-smoothing: antialiased;
 }
+/* Tema oscuro: sigue al sistema salvo que el usuario elija uno con el botón (data-tema en <html>). */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-tema="claro"]) {
     --fondo: #07151b; --superficie: #0f222a; --superficie-2: #14303a; --texto: #e6f1f0; --tenue: #9db4b2;
     --marca: #3cc6b9; --marca-oscura: #2aa79c; --marca-clara: #7fe3d7; --borde: #20404a; --noche: #040e13; --coral: #ff9478;
     --ok: #5fcf8f; --alerta: #f2b14c; --peligro: #ff8a80;
@@ -37,6 +38,14 @@
     color-scheme: dark;
   }
 }
+:root[data-tema="oscuro"] {
+  --fondo: #07151b; --superficie: #0f222a; --superficie-2: #14303a; --texto: #e6f1f0; --tenue: #9db4b2;
+  --marca: #3cc6b9; --marca-oscura: #2aa79c; --marca-clara: #7fe3d7; --borde: #20404a; --noche: #040e13; --coral: #ff9478;
+  --ok: #5fcf8f; --alerta: #f2b14c; --peligro: #ff8a80;
+  --sombra: 0 1px 2px rgb(0 0 0 / 30%), 0 14px 34px -16px rgb(0 0 0 / 60%);
+  color-scheme: dark;
+}
+:root[data-tema="claro"] { color-scheme: light; }
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
 body { margin: 0; background: var(--fondo); overflow-x: hidden; }

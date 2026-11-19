@@ -3,7 +3,9 @@ import { api, INTERESES, pesos, type Comprobante, type Oferta, type TipoServicio
 import { foto, fotosDeOferta } from "../fotos";
 import { useIdioma } from "../idioma";
 import { useSesion } from "../sesion";
-import { Aviso, avisar, Estado, Insignia, tonoEstado, useCarga } from "../ui";
+import { Aviso, avisar, Contador, Estado, Insignia, tonoEstado, useCarga, Vacio } from "../ui";
+import { Barras, Dona } from "../graficas";
+import { isoLocal } from "../extras";
 
 type Mensaje = { tipo: "ok" | "error"; texto: string } | null;
 type Pestana = "publicar" | "franja" | "verificacion";
@@ -29,6 +31,20 @@ export default function Prestador() {
       personas: confirmadas.reduce((s, r) => s + r.personas, 0),
       ingresos: confirmadas.reduce((s, r) => s + Number(r.total), 0),
     };
+  }, [reservas.datos]);
+  // Viajeros por día (próximas dos semanas) y ventas por experiencia, para las gráficas.
+  const porDia = useMemo(() => {
+    const conf = (reservas.datos ?? []).filter((r) => r.estado === "confirmada");
+    return Array.from({ length: 14 }, (_, i) => {
+      const d = new Date(Date.now() + i * 864e5);
+      const f = isoLocal(d);
+      return { clave: f, etiqueta: i === 0 ? "Hoy" : `${d.getDate()}/${d.getMonth() + 1}`, valor: conf.filter((r) => r.fecha_servicio === f).reduce((s, r) => s + r.personas, 0), resaltar: i === 0 };
+    });
+  }, [reservas.datos]);
+  const porOferta = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const r of reservas.datos ?? []) if (r.estado === "confirmada") m.set(r.nombre_oferta, (m.get(r.nombre_oferta) ?? 0) + Number(r.total));
+    return [...m.entries()].sort((a, b) => b[1] - a[1]).map(([nombre, valor]) => ({ clave: nombre, etiqueta: nombre, valor }));
   }, [reservas.datos]);
   const codigoZona = (id: string) => zonas.datos?.find((z) => z.id === id)?.codigo;
 
@@ -90,11 +106,23 @@ export default function Prestador() {
       {mensaje && <Aviso tipo={mensaje.tipo}>{mensaje.texto}</Aviso>}
 
       <div className="kpis">
-        <div className="kpi"><span>Ofertas publicadas</span><b>{ofertas.datos?.length ?? "—"}</b></div>
-        <div className="kpi"><span>Reservas confirmadas</span><b>{resumen.confirmadas}</b></div>
-        <div className="kpi"><span>Viajeros</span><b>{resumen.personas}</b></div>
-        <div className="kpi"><span>Ventas confirmadas</span><b>{pesos(resumen.ingresos).replace(" COP", "")}</b></div>
+        <div className="kpi"><span>Ofertas publicadas</span><b><Contador valor={ofertas.datos?.length} /></b></div>
+        <div className="kpi"><span>Reservas confirmadas</span><b><Contador valor={reservas.datos ? resumen.confirmadas : null} /></b></div>
+        <div className="kpi"><span>Viajeros</span><b><Contador valor={reservas.datos ? resumen.personas : null} /></b></div>
+        <div className="kpi"><span>Ventas confirmadas</span><b><Contador valor={reservas.datos ? resumen.ingresos : null} formato={(n) => pesos(n).replace(" COP", "")} /></b></div>
       </div>
+
+      {reservas.datos && reservas.datos.length > 0 && (
+        <div className="graficas-fila">
+          <div className="tarjeta"><Barras titulo="Viajeros por día · próximas 2 semanas" datos={porDia} /></div>
+          {porOferta.length > 0 && (
+            <div className="tarjeta">
+              <Dona titulo="Ventas por experiencia" unidad="en ventas" centro={resumen.ingresos >= 1e6 ? `$${(resumen.ingresos / 1e6).toFixed(1)} M` : `$${Math.round(resumen.ingresos / 1e3)} mil`}
+                partes={porOferta} />
+            </div>
+          )}
+        </div>
+      )}
 
       <section className="apilado">
         <div><span className="sobretitulo">Catálogo</span><h2>Mis ofertas</h2></div>
@@ -119,7 +147,7 @@ export default function Prestador() {
       <section className="apilado">
         <div><span className="sobretitulo">Reservas</span><h2>Reservas recibidas</h2></div>
         <Estado carga={reservas}>
-          {(rs) => rs.length === 0 ? <Aviso>Sin reservas todavía.</Aviso> : (
+          {(rs) => rs.length === 0 ? <Vacio titulo="Sin reservas todavía"><p>Abre horarios en la pestaña de abajo para empezar a recibir viajeros.</p></Vacio> : (
             <div className="tarjeta tabla-scroll" style={{ padding: ".4rem 1rem" }}>
               <table>
                 <thead><tr><th>Código</th><th>Experiencia</th><th>Fecha</th><th>Pers.</th><th>Total</th><th>Estado</th></tr></thead>

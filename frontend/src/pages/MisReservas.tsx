@@ -4,7 +4,8 @@ import { api, pesos, type Comprobante, type EntradaListaEspera } from "../api";
 import { fotosDeOferta } from "../fotos";
 import { useIdioma } from "../idioma";
 import { useSesion } from "../sesion";
-import { Aviso, avisar, Estado, Insignia, tonoEstado, useCarga } from "../ui";
+import { Aviso, avisar, Estado, Insignia, tonoEstado, useCarga, Vacio } from "../ui";
+import { BotonRecordatorios } from "../extras";
 
 const ESTADOS = ["", "confirmada", "pendiente_pago", "cancelada", "expirada", "cancelacion_pendiente"];
 
@@ -41,13 +42,19 @@ export default function MisReservas() {
     <div className="pila">
       <div className="fila entre">
         <h1>{t("misReservas")}</h1>
+        <BotonRecordatorios en={idioma === "en"} />
         <select value={estado} onChange={(e) => setEstado(e.target.value)} aria-label={t("estado")}>
           {ESTADOS.map((s) => <option key={s} value={s}>{s || "Todas"}</option>)}
         </select>
       </div>
       {mensaje && <Aviso tipo={mensaje.tipo}>{mensaje.texto}</Aviso>}
       <Estado carga={reservas}>
-        {(rs) => rs.length === 0 ? <Aviso>{t("vacio")} <Link to="/">{t("explorar")}</Link></Aviso> : (
+        {(rs) => rs.length === 0 ? (
+          <Vacio titulo={idioma === "en" ? "No trips here yet" : "Aún no hay viajes aquí"}>
+            <p>{idioma === "en" ? "Your next adventure in Santa Marta is one tap away." : "Tu próxima aventura en Santa Marta está a un toque."}</p>
+            <Link className="boton" to="/">{t("explorar")}</Link>
+          </Vacio>
+        ) : (
           <div className="rejilla">
             {rs.map((r) => (
               <Link key={r.reserva_id} to={`/reservas/${r.reserva_id}`} className="tarjeta reserva-mini">
