@@ -146,6 +146,33 @@ class RepositorioSql:
             rows = session.execute(select(alertas).where(alertas.c.resuelta_en.is_(None)).order_by(alertas.c.creada_en)).mappings()
             return [dict(r) for r in rows]
 
+    def actividad_reciente(self, limite: int = 8) -> dict[str, object]:
+        """Últimas reservas procesadas y ocupaciones publicadas, sin datos personales (vista pública)."""
+        with self._factory() as session:
+            filas = session.execute(
+                select(reservas.c.evento_id, reservas.c.zona_id, reservas.c.personas, reservas.c.creado_en)
+                .order_by(reservas.c.creado_en.desc()).limit(limite)
+            ).mappings().all()
+            publicadas = session.execute(
+                select(outbox.c.evento_id, outbox.c.datos, outbox.c.ocurrido_en, outbox.c.publicado_en)
+                .where(outbox.c.tipo == "analitica.zona.ocupacion_actualizada")
+                .order_by(outbox.c.ocurrido_en.desc()).limit(limite)
+            ).mappings().all()
+            pendientes = int(session.scalar(
+                select(func.count()).select_from(outbox).where(outbox.c.publicado_en.is_(None))) or 0)
+        return {
+            "reservas": [{
+                "evento_id": f["evento_id"], "zona_id": f["zona_id"], "zona": ZONAS_NOMBRE.get(f["zona_id"], f["zona_id"]),
+                "personas": f["personas"], "procesado_en": f["creado_en"].isoformat(),
+            } for f in filas],
+            "ocupaciones": [{
+                "evento_id": f["evento_id"], "zona_id": f["datos"].get("zona_id"), "ocupacion": f["datos"].get("ocupacion"),
+                "ocurrido_en": f["ocurrido_en"].isoformat(),
+                "publicado_en": f["publicado_en"].isoformat() if f["publicado_en"] else None,
+            } for f in publicadas],
+            "outbox_pendientes": pendientes,
+        }
+
     def procesar_reserva(self, reserva: ReservaConfirmada) -> bool:
         try:
             with self._factory.begin() as session:
