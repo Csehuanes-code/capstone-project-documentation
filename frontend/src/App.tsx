@@ -17,6 +17,7 @@ import Creditos from "./pages/Creditos";
 import Arquitectura from "./pages/Arquitectura";
 import { BotonTema, useRecordatorios } from "./extras";
 import { Toasts } from "./ui";
+import Intro, { yaVioIntro } from "./intro";
 
 /** Tarjetas que se inclinan siguiendo el puntero ([data-tilt]) y brillo que lo sigue ([data-brillo]). */
 function useEfectosPuntero() {
@@ -97,6 +98,9 @@ export default function App() {
   const en = idioma === "en";
   useEffect(() => { window.scrollTo(0, 0); }, [pathname]);
   useEfectosPuntero();
+  // Intro de bienvenida: la primera vez que se entra a la portada (o al pedirla desde el pie de página).
+  const [intro, setIntro] = useState(() => pathname === "/" && !yaVioIntro()
+    && !window.matchMedia?.("(prefers-reduced-motion: reduce)").matches);
   // Recordatorios del navegador (si el turista los activó): tours de hoy y de mañana.
   const [recordar, setRecordar] = useState(0);
   useEffect(() => { const f = () => setRecordar((n) => n + 1); window.addEventListener("sierramar:recordatorios", f); return () => window.removeEventListener("sierramar:recordatorios", f); }, []);
@@ -168,6 +172,7 @@ export default function App() {
         </div>
       </main>
 
+      {intro && <Intro alTerminar={() => setIntro(false)} />}
       <Toasts />
       <nav className="barra-movil" aria-label={en ? "Quick navigation" : "Navegación rápida"}>
         <NavLink to="/" end><Icono n="brujula" />{t("explorar")}</NavLink>
@@ -211,7 +216,10 @@ export default function App() {
         </div>
         <div className="contenedor pie-final">
           <span>© 2026 SierraMar · Santa Marta, Colombia</span>
-          <Link to="/creditos">{en ? "Photo credits" : "Créditos fotográficos"}</Link>
+          <span className="fila" style={{ gap: "1rem" }}>
+            <button type="button" className="boton-texto" onClick={() => { window.scrollTo(0, 0); setIntro(true); }}>{en ? "Watch welcome" : "Ver bienvenida"}</button>
+            <Link to="/creditos">{en ? "Photo credits" : "Créditos fotográficos"}</Link>
+          </span>
         </div>
       </footer>
     </>
