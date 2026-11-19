@@ -1,7 +1,7 @@
 import { useMemo, useState, type FormEvent } from "react";
 import { api, pesos, type Alerta, type Disputa, type Indicador, type Verificacion, type Zona } from "../api";
 import { foto } from "../fotos";
-import { Aviso, Estado, Insignia, tonoEstado, useCarga } from "../ui";
+import { Aviso, avisar, Estado, Insignia, tonoEstado, useCarga } from "../ui";
 
 const iso = (d: Date) => d.toISOString().slice(0, 10);
 
@@ -36,7 +36,7 @@ export default function Admin() {
     setMensaje(null);
     try {
       await fn();
-      setMensaje({ tipo: "ok", texto: ok });
+      avisar(ok);
       recargar.forEach((r) => r());
     } catch (e) {
       setMensaje({ tipo: "error", texto: (e as Error).message });

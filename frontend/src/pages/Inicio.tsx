@@ -1,11 +1,41 @@
-import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { CREDITOS, type ClaveFoto } from "../fotos";
+import { irConFoto } from "../transicion";
 import { api, INTERESES, pesos, type DetalleOferta, type ItemRecomendado, type Oferta, type Recomendacion, type Zona } from "../api";
 import { FOTO_ZONA, LEMA_ZONA, foto, fotosDeOferta } from "../fotos";
 import { Icono } from "../ilustraciones";
 import MapaZonas, { type EstadoZona } from "../MapaZonas";
 import { useIdioma } from "../idioma";
-import { Aviso, Estado, Insignia, useCarga } from "../ui";
+import { Aviso, Contador, Estado, Insignia, useCarga } from "../ui";
+
+// Portada: cada foto con la palabra que completa el título.
+const PORTADAS: { foto: ClaveFoto; es: string; en: string; lugar: [string, string] }[] = [
+  { foto: "heroe", es: "con el mar", en: "meets the sea", lugar: ["Ensenadas del Tayrona", "Tayrona coves"] },
+  { foto: "minca-cascada", es: "con la selva", en: "meets the jungle", lugar: ["Cascadas de Minca", "Minca waterfalls"] },
+  { foto: "catedral", es: "con la historia", en: "meets history", lugar: ["Catedral de Santa Marta", "Santa Marta Cathedral"] },
+  { foto: "atardecer", es: "con el atardecer", en: "meets the sunset", lugar: ["Bahía de Santa Marta", "Santa Marta bay"] },
+];
+
+const PASOS: { icono: "brujula" | "calendario" | "ondas" | "hoja"; es: [string, string]; en: [string, string] }[] = [
+  { icono: "brujula", es: ["Elige", "Experiencias de prestadores verificados con su RNT."], en: ["Choose", "Experiences from operators verified with their RNT."] },
+  { icono: "calendario", es: ["Reserva", "Cupos reales, pago seguro y comprobante al instante."], en: ["Book", "Real availability, secure payment and an instant receipt."] },
+  { icono: "ondas", es: ["Vive", "Presenta tu código QR y disfruta Santa Marta."], en: ["Enjoy", "Show your QR code and enjoy Santa Marta."] },
+  { icono: "hoja", es: ["Cuida", "Tu visita respeta la capacidad de carga de cada zona."], en: ["Care", "Your visit respects each area's load capacity."] },
+];
+
+// Ejemplos ilustrativos de la demo (no son reseñas reales de usuarios).
+const TESTIMONIOS = [
+  { nombre: "Laura · Medellín", experiencia: "Tour cascadas de Minca", foto: "minca-cascada" as ClaveFoto,
+    es: "Reservé en dos minutos desde el celular y el comprobante me llegó al correo. La IA me llevó a Minca en vez de Tayrona y fue lo mejor del viaje.",
+    en: "I booked in two minutes from my phone and got the receipt by email. The AI suggested Minca instead of Tayrona, and it was the best part of the trip." },
+  { nombre: "Tom · Ámsterdam", experiencia: "Bautismo de buceo en Taganga", foto: "buceo" as ClaveFoto,
+    es: "Todo en inglés, el precio claro desde el principio y un prestador verificado. Me dio confianza para reservar algo que no conocía.",
+    en: "Everything in English, a clear price from the start and a verified operator. It gave me confidence to book something new." },
+  { nombre: "Don Efraín · prestador en Taganga", experiencia: "Panel del prestador", foto: "taganga" as ClaveFoto,
+    es: "Publiqué mi tour con un formulario sencillo y veo mis reservas en un solo lugar. Ya no compito solo contra los operadores grandes.",
+    en: "I published my tour with a simple form and see my bookings in one place. I no longer compete alone against the big operators." },
+];
 
 const NIVEL: Record<string, "ok" | "alerta" | "peligro" | "neutro"> = {
   tranquila: "ok", moderada: "alerta", muy_concurrida: "peligro", desconocida: "neutro",
@@ -37,7 +67,7 @@ function TarjetaRecomendada({ item, zonaCodigo }: { item: ItemRecomendado; zonaC
   const en = idioma === "en";
   const [imagen] = fotosDeOferta({ nombre_es: item.nombre }, zonaCodigo);
   return (
-    <article className="tarjeta recomendada">
+    <article className="tarjeta recomendada" data-tilt="">
       <div className="recomendada-foto">
         <img src={imagen} alt="" loading="lazy" />
         <span className="puesto">#{item.posicion}</span>
@@ -93,10 +123,18 @@ function TarjetaOferta({ o, zona, aforo }: { o: OfertaEnriquecida; zona?: Zona; 
   const en = idioma === "en";
   const categoria = o.atributos.categorias?.[0];
   const nivel = aforo?.zona.nivel;
+  const navegar = useNavigate();
+  const imagen = useRef<HTMLImageElement>(null);
+  const ruta = `/ofertas/${o.id}`;
   return (
-    <Link to={`/ofertas/${o.id}`} className="tarjeta oferta">
+    <Link to={ruta} className="tarjeta oferta" data-tilt=""
+      onClick={(e) => {
+        if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+        e.preventDefault();
+        irConFoto(navegar, ruta, imagen.current, { foto: o.fotos[0], nombre: en ? o.nombre_en : o.nombre_es });
+      }}>
       <div className="oferta-imagen">
-        <img src={o.fotos[0]} alt={en ? o.nombre_en : o.nombre_es} loading="lazy" />
+        <img ref={imagen} src={o.fotos[0]} alt={en ? o.nombre_en : o.nombre_es} loading="lazy" />
         {o.desde != null && <span className="precio-flotante">{pesos(o.desde, o.moneda)}</span>}
         <div className="etiquetas">
           {categoria ? <span>{en ? CATEGORIA_EN[categoria] ?? categoria : categoria}</span> : <span />}
@@ -192,14 +230,36 @@ export default function Inicio() {
   const irAlCatalogo = () => document.getElementById("catalogo")?.scrollIntoView({ behavior: "smooth" });
   const zonaActiva = zonaFiltro ? zonaPorId(zonaFiltro) : undefined;
 
+  // Portada rotativa: cambia de foto y de palabra cada 6 s (quieta si el usuario pide menos movimiento).
+  const [portada, setPortada] = useState(0);
+  useEffect(() => {
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+    const t = setInterval(() => setPortada((p) => (p + 1) % PORTADAS.length), 6000);
+    return () => clearInterval(t);
+  }, []);
+  const actual = PORTADAS[portada];
+  const credito = CREDITOS[actual.foto];
+
+  // Destacadas: las más reservadas primero (popularidad que IA recibe de Reservas).
+  const destacadas = useMemo(() => [...(catalogo.datos ?? [])]
+    .sort((a, b) => (aforoDe(b.id)?.reservas_confirmadas ?? 0) - (aforoDe(a.id)?.reservas_confirmadas ?? 0)),
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  [catalogo.datos, aforos.datos]);
+  const carrusel = useRef<HTMLDivElement>(null);
+  const deslizar = (dir: number) => carrusel.current?.scrollBy({ left: dir * Math.min(carrusel.current.clientWidth * 0.8, 720), behavior: "smooth" });
+  const navegar = useNavigate();
+
   return (
     <>
       <section className="heroe a-sangre">
-        <img className="heroe-foto" src={foto("heroe")} alt={en ? "Coves of Tayrona National Park" : "Ensenadas del Parque Nacional Natural Tayrona"} />
+        {PORTADAS.map((p, i) => (
+          <img key={p.foto} className={`heroe-foto${i === portada ? " activa" : ""}`} src={foto(p.foto)} alt={i === portada ? p.lugar[en ? 1 : 0] : ""}
+            aria-hidden={i !== portada} />
+        ))}
         <div className="heroe-orbes" aria-hidden="true"><span /><span /><span /></div>
         <div className="contenedor heroe-contenido">
           <span className="pildora">{en ? "Santa Marta · Colombian Caribbean" : "Santa Marta · Caribe colombiano"}</span>
-          <h1>{en ? <>Where the Sierra Nevada <em>meets the sea</em></> : <>Donde la Sierra Nevada <em>se encuentra con el mar</em></>}</h1>
+          <h1>{en ? "Where the Sierra Nevada " : "Donde la Sierra Nevada se encuentra "}<em key={portada} className="palabra">{en ? actual.en : actual.es}</em></h1>
           <p className="heroe-texto">{t("subtitulo")}</p>
           <form className="buscador" onSubmit={(e) => { e.preventDefault(); setBusqueda(texto); irAlCatalogo(); }}>
             <label>{en ? "What are you looking for?" : "¿Qué quieres vivir?"}
@@ -214,12 +274,54 @@ export default function Inicio() {
             <button className="boton-grande boton-sol">{en ? "Search" : "Buscar"}</button>
           </form>
           <div className="cifras">
-            <div><b>{catalogo.datos?.length ?? "—"}</b>{en ? "verified experiences" : "experiencias verificadas"}</div>
-            <div><b>{zonas.datos?.length ?? "—"}</b>{en ? "destinations" : "destinos"}</div>
-            <div><b>{reservasTotales}</b>{en ? "confirmed bookings" : "reservas confirmadas"}</div>
+            <div><b><Contador valor={catalogo.datos?.length} /></b>{en ? "verified experiences" : "experiencias verificadas"}</div>
+            <div><b><Contador valor={zonas.datos?.length} /></b>{en ? "destinations" : "destinos"}</div>
+            <div><b><Contador valor={aforos.datos ? reservasTotales : null} /></b>{en ? "confirmed bookings" : "reservas confirmadas"}</div>
+          </div>
+          <div className="puntos-portada" role="group" aria-label={en ? "Cover photos" : "Fotos de portada"}>
+            {PORTADAS.map((p, i) => (
+              <button key={p.foto} type="button" aria-pressed={i === portada} aria-label={p.lugar[en ? 1 : 0]} onClick={() => setPortada(i)} />
+            ))}
           </div>
         </div>
-        <Link to="/creditos" className="credito-foto">Foto: Felipe Restrepo Acosta · CC BY-SA 4.0</Link>
+        <Link to="/creditos" className="credito-foto">{actual.lugar[en ? 1 : 0]} · Foto: {credito.autor} · {credito.licencia}</Link>
+        <svg className="olas" viewBox="0 0 1440 120" preserveAspectRatio="none" aria-hidden="true">
+          <path className="ola ola-1" d="M0 70 C240 30 480 110 720 70 C960 30 1200 110 1440 70 C1680 30 1920 110 2160 70 L2160 120 L0 120 Z" />
+          <path className="ola ola-2" d="M0 85 C240 55 480 115 720 85 C960 55 1200 115 1440 85 C1680 55 1920 115 2160 85 L2160 120 L0 120 Z" />
+          <path className="ola ola-3" d="M0 98 C240 80 480 116 720 98 C960 80 1200 116 1440 98 C1680 80 1920 116 2160 98 L2160 120 L0 120 Z" />
+        </svg>
+      </section>
+
+      <section className="seccion destacadas">
+        <div className="encabezado-seccion">
+          <div>
+            <span className="sobretitulo">{en ? "Most booked" : "Lo más reservado"}</span>
+            <h2>{en ? "Featured experiences" : "Experiencias destacadas"}</h2>
+          </div>
+          <div className="fila">
+            <button type="button" className="flecha-carrusel" aria-label={en ? "Previous" : "Anterior"} onClick={() => deslizar(-1)}>←</button>
+            <button type="button" className="flecha-carrusel" aria-label={en ? "Next" : "Siguiente"} onClick={() => deslizar(1)}>→</button>
+          </div>
+        </div>
+        <div className="carrusel" ref={carrusel}>
+          {destacadas.map((o, i) => (
+            <Link key={o.id} to={`/ofertas/${o.id}`} className="destacada" data-tilt=""
+              onClick={(e) => {
+                if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+                e.preventDefault();
+                const img = e.currentTarget.querySelector("img");
+                irConFoto(navegar, `/ofertas/${o.id}`, img, { foto: o.fotos[0], nombre: en ? o.nombre_en : o.nombre_es });
+              }}>
+              <img src={o.fotos[0]} alt="" loading={i < 3 ? "eager" : "lazy"} />
+              <span className="destacada-puesto">{String(i + 1).padStart(2, "0")}</span>
+              <span className="destacada-texto">
+                <small>{zonaPorId(o.zona_id)?.[en ? "nombre_en" : "nombre_es"]}</small>
+                <strong>{en ? o.nombre_en : o.nombre_es}</strong>
+                <span>{o.desde != null ? `${en ? "From" : "Desde"} ${pesos(o.desde, o.moneda)}` : ""}{(aforoDe(o.id)?.reservas_confirmadas ?? 0) > 0 ? ` · ${aforoDe(o.id)!.reservas_confirmadas} ${aforoDe(o.id)!.reservas_confirmadas === 1 ? (en ? "booking" : "reserva") : (en ? "bookings" : "reservas")}` : ""}</span>
+              </span>
+            </Link>
+          ))}
+        </div>
       </section>
 
       <section id="destinos" className="seccion">
@@ -253,12 +355,32 @@ export default function Inicio() {
         </div>
       </section>
 
-      <section className="seccion aparece">
+      <section className="seccion aparece" data-brillo="">
         <MapaZonas zonas={destinos} estados={estadosZona} elegida={zonaFiltro}
           onElegir={(id) => { if (experienciasEn(id) === 0) return; setZonaFiltro(id); irAlCatalogo(); }} />
       </section>
 
-      <section id="para-ti" className="ia a-sangre seccion">
+      <section className="seccion como-funciona">
+        <div className="encabezado-seccion" style={{ justifyContent: "center", textAlign: "center" }}>
+          <div>
+            <span className="sobretitulo">{en ? "How it works" : "Cómo funciona"}</span>
+            <h2>{en ? "From idea to trip, in four steps" : "De la idea al viaje, en cuatro pasos"}</h2>
+          </div>
+        </div>
+        <ol className="pasos">
+          <li className="pasos-linea" aria-hidden="true"><span /></li>
+          {PASOS.map((p, i) => (
+            <li key={p.icono} className="paso aparece" style={{ animationDelay: `${i * 80}ms` }}>
+              <span className="paso-icono"><Icono n={p.icono} tam={30} /></span>
+              <small>{String(i + 1).padStart(2, "0")}</small>
+              <strong>{p[en ? "en" : "es"][0]}</strong>
+              <p className="tenue">{p[en ? "en" : "es"][1]}</p>
+            </li>
+          ))}
+        </ol>
+      </section>
+
+      <section id="para-ti" className="ia a-sangre seccion" data-brillo="">
         <img className="ia-fondo" src={foto("atardecer")} alt="" loading="lazy" />
         <div className="contenedor">
           <div className="encabezado-seccion">
@@ -317,6 +439,28 @@ export default function Inicio() {
             </div>
           )}
         </Estado>
+      </section>
+
+      <section className="seccion testimonios">
+        <div className="encabezado-seccion">
+          <div>
+            <span className="sobretitulo">{en ? "Voices from the destination" : "Voces del destino"}</span>
+            <h2>{en ? "What a trip with SierraMar feels like" : "Así se siente viajar con SierraMar"}</h2>
+            <p className="tenue">{en ? "Illustrative examples for this demo." : "Ejemplos ilustrativos de esta demo."}</p>
+          </div>
+        </div>
+        <div className="rejilla">
+          {TESTIMONIOS.map((t) => (
+            <figure key={t.nombre} className="testimonio aparece" data-tilt="">
+              <span className="comillas" aria-hidden="true">“</span>
+              <blockquote>{en ? t.en : t.es}</blockquote>
+              <figcaption>
+                <img src={foto(t.foto)} alt="" loading="lazy" />
+                <span><b>{t.nombre}</b><small>{t.experiencia} · ★★★★★</small></span>
+              </figcaption>
+            </figure>
+          ))}
+        </div>
       </section>
 
       <section className="seccion pilares aparece">
