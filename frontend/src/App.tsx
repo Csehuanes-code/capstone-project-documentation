@@ -105,6 +105,7 @@ export default function App() {
       </header>
 
       <main className={`contenedor principal${enInicio ? " inicio" : ""}`}>
+        <div key={pathname} className="pagina">
         <Routes>
           <Route path="/" element={<Inicio />} />
           <Route path="/ofertas/:id" element={<DetalleOferta />} />
@@ -118,6 +119,7 @@ export default function App() {
           <Route path="/admin" element={<Protegida rol="administrador"><Admin /></Protegida>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        </div>
       </main>
 
       <nav className="barra-movil" aria-label={en ? "Quick navigation" : "Navegación rápida"}>

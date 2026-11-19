@@ -29,7 +29,11 @@ export function Estado<T>({ carga, children }: {
 }) {
   const { t } = useIdioma();
   if (carga.error) return <Aviso tipo="error">{carga.error}</Aviso>;
-  if (carga.cargando && carga.datos === null) return <p className="tenue">{t("cargando")}</p>;
+  if (carga.cargando && carga.datos === null) return (
+    <div className="esqueletos" role="status" aria-label={t("cargando")}>
+      {[0, 1, 2].map((i) => <div key={i} className="esqueleto" aria-hidden="true"><i /><i /><i /><i /></div>)}
+    </div>
+  );
   if (carga.datos === null) return null;
   return <>{children(carga.datos)}</>;
 }
