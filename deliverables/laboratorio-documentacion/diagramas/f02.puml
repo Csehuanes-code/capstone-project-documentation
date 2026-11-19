@@ -1,0 +1,46 @@
+@startuml
+!include estilo.iuml
+title Entrega del evento "reserva confirmada" (UML de componentes)
+component "Reservas" <<microservice>> as RES {
+  component "IniciarReservaUseCase\n(caso de uso)" as UC
+  portout " " as p1
+  component "registrar_en_outbox\n(comun.eventos)" as OB
+  component "ProcesadorOutbox\n(comun.eventos)" as PO
+  interface "PublicadorEventos" as IPE
+  UC ..> IPE : <<use>>
+  IPE - OB
+}
+database "reservas_db\n(reserva, pago, outbox)" as RDB <<datastore>>
+UC --> RDB : UPDATE franja / INSERT reserva
+OB --> RDB : INSERT outbox\n(misma transacción)
+PO --> RDB : SELECT publicado_en IS NULL
+artifact "contratos/eventos/\nreservas.reserva.confirmada.schema.json" as SCH
+OB ..> SCH : <<conforms to>>
+interface "IPublicarAMQP" as IPA
+PO ..> IPA : <<use>>
+node "RabbitMQ <<message broker>>" as MQ {
+  component "exchange «turismo»\n(topic)" as EX
+  queue "analitica.eventos" as QA
+  queue "ia.eventos" as QI
+  queue "*.errores" as QE
+  EX --> QA
+  EX --> QI
+  QA ..> QE : nack sin reencolar
+  QI ..> QE : nack sin reencolar
+}
+IPA - EX
+interface "IConsumirAMQP" as ICA
+QA - ICA
+QI - ICA
+component "Analítica" <<microservice>> as AN
+component "IA" <<microservice>> as IA
+AN ..> ICA : <<use>>
+IA ..> ICA : <<use>>
+interface "ConsumidorIdempotente\n(comun.eventos)" as IRI
+AN ..> IRI : <<use>>
+IA ..> IRI : <<use>>
+database "analitica_db\n(reserva_hecho,\nevento_procesado)" as ADB <<datastore>>
+database "ia_db\n(proyeccion_oferta,\nevento_procesado)" as IDB <<datastore>>
+IRI -- ADB
+IRI -- IDB
+@enduml

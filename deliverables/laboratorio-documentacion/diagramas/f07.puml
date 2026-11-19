@@ -1,0 +1,33 @@
+@startuml
+!include estilo.iuml
+title Entorno local de desarrollo (docker compose up)
+node "Computador del desarrollador · Docker Compose" {
+  component "traefik\nlocalhost:8080" as TR
+  component "frontend" as FE
+  component "auth" as AU
+  component "catalogo" as CA
+  component "reservas" as RE
+  component "ia" as IA
+  component "analitica" as AN
+  queue "rabbitmq\n(panel: localhost:15680)" as MQ
+  database "postgres:16\n(5 bases)" as PG
+  component "mailpit\n(localhost:8025)" as MP
+}
+TR --> FE
+TR --> AU
+TR --> CA
+TR --> RE
+TR --> IA
+TR --> AN
+AU --> PG
+CA --> PG
+RE --> PG
+IA --> PG
+AN --> PG
+AU ..> MQ
+CA ..> MQ
+RE ..> MQ
+IA ..> MQ
+AN ..> MQ
+RE --> MP
+@enduml

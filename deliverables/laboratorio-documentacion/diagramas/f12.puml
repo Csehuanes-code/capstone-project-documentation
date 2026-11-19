@@ -1,0 +1,51 @@
+@startuml
+!include estilo.iuml
+skinparam sequenceMessageAlign left
+skinparam ParticipantBackgroundColor #e8f4f2
+skinparam ParticipantBorderColor #1c7a73
+skinparam SequenceLifeLineBorderColor #a8123e
+autonumber
+title Reserva de una experiencia (CU-11)
+actor "Turista\n(PWA)" as T
+participant Traefik as TR
+participant Reservas as RES
+participant "Catálogo" as CAT
+database reservas_db as DB
+queue RabbitMQ as MQ
+participant "Analítica" as AN
+participant IA
+T -> TR : POST /api/v1/reservas\n(franja, personas, Idempotency-Key) + JWT
+TR -> RES : POST /reservas
+RES -> RES : validar JWT (comun.seguridad)\ny X-Correlation-Id
+RES -> DB : buscar reserva por clave_idempotencia
+alt la clave ya existe
+  DB --> RES : reserva existente
+  RES --> T : la misma reserva (no se crea otra)
+else clave nueva
+  RES -> CAT : GET /ofertas/{id}/condiciones (timeout 1 s)
+  alt circuit breaker abierto o sin respuesta
+    RES --> T : 503 "no disponible temporalmente"\n(no se toca el cupo)
+  else condiciones recibidas
+    CAT --> RES : estado, tarifa vigente, política
+    RES -> DB : BEGIN; UPDATE franja SET cupo = cupo - n\nWHERE cupo >= n
+    alt 0 filas afectadas (sin cupo)
+      DB --> RES : 0 filas
+      RES --> T : 409 sin cupo + ofrecer lista de espera
+    else 1 fila afectada
+      RES -> DB : INSERT reserva (pendiente_pago); COMMIT
+      ref over RES, DB : Procesar pago con reintentos (Figura 13)
+      alt pago aprobado
+        RES -> DB : BEGIN; reserva = confirmada; INSERT pago;\nINSERT outbox(reservas.reserva.confirmada); COMMIT
+        RES --> T : 201 Created + comprobante
+        RES ->> MQ : (proceso de outbox) publica el evento
+        MQ ->> AN : entrega (reserva_hecho)
+        MQ ->> IA : entrega (popularidad)
+      else pago fallido
+        RES -> DB : BEGIN; reserva = expirada;\ncupo = cupo + n; COMMIT
+        RES --> T : 402 pago no realizado, sin cobro
+      end
+    end
+  end
+end
+note over T, IA : Códigos implementados: 201, 402, 409 (sin cupo o clave en conflicto), 503 (Catálogo no disponible)
+@enduml

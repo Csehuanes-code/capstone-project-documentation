@@ -1,0 +1,29 @@
+@startuml
+!include estilo.iuml
+title Flujo de reserva sobre el nodo del prototipo
+actor "Turista (PWA)" as T
+node "VM sierramar-demo (Azure)" as VM {
+  node "red interna de Docker" as NET {
+    component "Traefik" as TR
+    component "Reservas\n(+ proceso de outbox)" as RES
+    component "Catálogo" as CAT
+    component "Analítica" as AN
+    component "IA" as IA
+    queue "RabbitMQ" as MQ
+    database "PostgreSQL 16\n(reservas_db, catalogo_db, ...)" as PG
+  }
+}
+T --> TR : HTTPS (única entrada pública)
+TR --> RES : HTTP interno
+RES --> CAT : REST 1 s
+RES =down=> PG : SQL: UPDATE condicional,\nreserva + outbox
+CAT =down=> PG : SQL
+RES ..> MQ : AMQP
+MQ ..> AN
+MQ ..> IA
+legend right
+  Despliegue: nodo = VM; marco interno = red de Docker
+  (solo Traefik publica puertos)
+  Componentes y conectores: —— REST · ══ SQL · ··> eventos AMQP
+endlegend
+@enduml

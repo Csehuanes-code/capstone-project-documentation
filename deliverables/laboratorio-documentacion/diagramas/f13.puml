@@ -1,0 +1,26 @@
+@startuml
+!include estilo.iuml
+skinparam sequenceMessageAlign left
+skinparam ParticipantBackgroundColor #e8f4f2
+skinparam ParticipantBorderColor #1c7a73
+skinparam SequenceLifeLineBorderColor #a8123e
+autonumber
+title Procesar pago con reintentos (ref de la Figura 12)
+participant "Reservas\n(IniciarReservaUseCase)" as R
+participant "PagoSimuladoAdapter\n(PagoPort)" as P
+database reservas_db as DB
+loop hasta 3 intentos, timeout de 5 s cada uno
+  R -> P : cobrar(total, referencia)
+  alt aprobado
+    P --> R : aprobado + referencia_pasarela (SIM-OK-…)
+    note right of R : sale del bucle
+  else rechazado
+    P --> R : rechazado
+    note right of R : no se reintenta un rechazo
+  else tiempo agotado
+    P --> R : error temporal
+  end
+end
+R -> DB : registrar el pago (estado y referencia)
+note over R, DB : El pago nunca guarda datos de tarjeta, solo la referencia de la pasarela (RF-PAG-02).\nTarjetas de prueba: …0002 rechazada · …9999 tiempo agotado · …0019 sin reembolso.
+@enduml

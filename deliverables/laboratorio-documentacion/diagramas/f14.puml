@@ -1,0 +1,20 @@
+@startuml
+!include estilo.iuml
+skinparam StateBackgroundColor #e8f4f2
+skinparam StateBorderColor #1c7a73
+title Ciclo de vida de una reserva
+[*] --> pendiente_pago : UPDATE condicional\nafectó 1 fila
+pendiente_pago : cupo descontado y bloqueado\nhasta bloqueo_expira_en
+pendiente_pago --> confirmada : pago aprobado /\nINSERT outbox(reserva.confirmada)
+pendiente_pago --> expirada : pago fallido o bloqueo vencido /\ndevolver cupo
+expirada : cupo ofrecido a la lista de espera
+confirmada --> cancelada : cancelar [reembolso exitoso\no sin reembolso por política] /\nliberar cupo
+confirmada --> cancelacion_pendiente : cancelar [reembolso falla] /\nliberar cupo y avisar al administrador
+cancelacion_pendiente --> cancelada : administrador resuelve\nel reembolso
+state "completada (calculado)" as completada
+completada : no se guarda: GET /reservas/{id}/estado\nla devuelve si la fecha del servicio ya pasó;\nhabilita la calificación en Catálogo
+confirmada -right-> completada : la fecha del\nservicio ya pasó
+cancelada --> [*]
+expirada --> [*]
+completada --> [*]
+@enduml

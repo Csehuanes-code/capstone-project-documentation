@@ -1,0 +1,30 @@
+@startuml
+!include estilo.iuml
+title Asignación de trabajo (assigned-to)
+actor "David\nHasbum" as DH
+actor "Luis\nRincón" as LR
+actor "Santiago\nCriollo" as SC
+actor "Julián\nTobias" as JT
+actor "Carlos\nSehuanes" as CS
+component "auth-service" as A
+component "catalog-service" as C
+component "reservas-service" as R
+component "comun" as CO
+component "ia-service" as I
+component "analitica-service" as N
+component "despliegue/gateway" as G
+component "contratos" as K
+component "despliegue (nube)" as D
+component "frontend" as F
+DH --> A
+LR --> C
+SC --> R
+SC --> CO
+JT --> I
+CS --> N
+CS --> G
+CS --> K
+CS --> D
+CS --> F
+SC --> F
+@enduml

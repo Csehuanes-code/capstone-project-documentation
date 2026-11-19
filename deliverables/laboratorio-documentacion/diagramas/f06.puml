@@ -1,0 +1,45 @@
+@startuml
+!include estilo.iuml
+title Despliegue del prototipo (Microsoft Azure, región Brazil South)
+node "Dispositivo del usuario" as DEV {
+  artifact "PWA\n(service worker:\napp y fotos en caché)" as PWA
+}
+cloud "Let's Encrypt" as LE
+node "Grupo de seguridad de red\n(entrada: 22, 80, 443)" as NSG {
+  node "VM sierramar-demo\nUbuntu 24.04 · Standard_D2s_v4 (2 vCPU, 8 GiB)\nIP pública estática" as VM {
+    node "Docker Engine + Docker Compose (red interna)" as DK {
+      component "traefik\n:80 → :443" as TR
+      component "frontend\n(nginx)" as FE
+      component "auth" as AU
+      component "catalogo" as CA
+      component "reservas" as RE
+      component "ia" as IA
+      component "analitica" as AN
+      queue "rabbitmq\n(sin puerto público)" as MQ
+      database "postgres 16\n5 bases · volumen persistente\n(sin puerto público)" as PG
+      component "mailpit\n(/correo con clave)" as MP
+    }
+  }
+}
+DEV --> TR : HTTPS 443
+LE ..> TR : reto HTTP-01 (:80)
+TR --> FE
+TR --> AU
+TR --> CA
+TR --> RE
+TR --> IA
+TR --> AN
+TR --> MP
+AU --> PG
+CA --> PG
+RE --> PG
+IA --> PG
+AN --> PG
+AU ..> MQ
+CA ..> MQ
+RE ..> MQ
+IA ..> MQ
+AN ..> MQ
+RE --> MP : SMTP
+note bottom of VM : Ruta de crecimiento: segunda VM detrás de un balanceador,\nPostgreSQL gestionado con réplica y RabbitMQ gestionado.\nLas imágenes de los contenedores no cambian.
+@enduml

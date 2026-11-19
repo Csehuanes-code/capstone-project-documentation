@@ -1,0 +1,24 @@
+sequenceDiagram
+    autonumber
+    actor T as Turista (PWA)
+    participant GW as Traefik
+    participant R as Reservas
+    participant C as Catálogo
+    participant DB as reservas_db
+    participant MQ as RabbitMQ
+    participant IA as IA
+    participant AN as Analítica
+    T->>GW: POST /api/v1/reservas + JWT + Idempotency-Key
+    GW->>R: enruta (health check OK)
+    R->>R: valida JWT ES256 con la clave pública
+    R->>C: GET condiciones de la oferta (1 s, circuit breaker)
+    C-->>R: tarifa vigente y política
+    R->>DB: UPDATE franja SET cupo = cupo - n WHERE cupo >= n
+    R->>DB: INSERT reserva (pendiente_pago)
+    R->>R: cobra por PagoPort (simulado)
+    R->>DB: reserva = confirmada + pago + outbox (una transacción)
+    R-->>T: 201 + comprobante SMT-XXXXXX
+    R->>T: correo de confirmación (ES/EN)
+    R-)MQ: proceso de outbox publica reservas.reserva.confirmada
+    MQ-)IA: suma popularidad (evento_procesado)
+    MQ-)AN: registra reserva_hecho (evento_procesado)

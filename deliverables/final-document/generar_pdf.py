@@ -54,6 +54,7 @@ h2:not(:first-of-type) { break-before: page; }
 h3 { font-size: 12.5pt; margin: 16pt 0 6pt; break-after: avoid; color: #0e7c7b; }
 p, li { orphans: 3; widows: 3; }
 a { color: #0e7c7b; text-decoration: none; }
+td code { overflow-wrap: anywhere; word-break: break-word; }
 code { font-family: Consolas, "JetBrains Mono", monospace; font-size: 8.8pt; background: #eef3f2; padding: 0 3px; border-radius: 3px; }
 table { width: 100%; border-collapse: collapse; margin: 8pt 0 10pt; font-size: 8.9pt; break-inside: auto; }
 tr { break-inside: avoid; }
