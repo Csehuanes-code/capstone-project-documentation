@@ -1,0 +1,29 @@
+@startuml
+!include estilo.iuml
+title Entrega del evento "reserva confirmada" (notación informal)
+actor Turista
+rectangle "Transacción en reservas_db" as TX #f0f7f6 {
+  rectangle "Servicio\nReservas" as RES
+  rectangle "tabla\nreserva" as TR
+  rectangle "tabla\noutbox" as TO
+}
+note top of TX : reserva, pago y evento se guardan juntos:\nsi uno falla, ninguno queda
+rectangle "Proceso de outbox\n(hilo dentro de Reservas,\ncada pocos segundos)" as RELAY #e8f4f2
+rectangle "RabbitMQ\nexchange topic «turismo»\n(compartido por los 5 servicios)" as MQ #fde8e2
+rectangle "cola\nanalitica.eventos" as QA
+rectangle "cola\nia.eventos" as QI
+rectangle "Analítica\nreserva_hecho +\nevento_procesado" as AN #e8f4f2
+rectangle "IA\npopularidad +\nevento_procesado" as IA #e8f4f2
+rectangle "colas de errores\n(*.errores)" as DLQ #fde8e2
+Turista --> RES : paga y confirma
+RES --> TR : estado = confirmada
+RES --> TO : evento
+TO --> RELAY : filas sin publicar
+RELAY --> MQ : publica
+MQ --> QA
+MQ --> QI
+QA --> AN : entrega
+QI --> IA : entrega
+QA ..> DLQ : no cumple el contrato
+QI ..> DLQ : no cumple el contrato
+@enduml

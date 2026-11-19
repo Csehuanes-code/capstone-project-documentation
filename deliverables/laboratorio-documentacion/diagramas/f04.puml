@@ -1,0 +1,58 @@
+@startuml
+!include estilo.iuml
+title Estructura interna del servicio Reservas (Clean Architecture)
+left to right direction
+skinparam nodesep 18
+skinparam ranksep 40
+package "reservas" {
+  package "api" {
+    class "app (rutas FastAPI)" as APP
+    class ConsumidorRabbitMQ
+  }
+  package "aplicacion" {
+    class IniciarReservaUseCase
+    class CancelarReservaUseCase
+    class ExpirarBloqueosVencidosUseCase
+    class ConsultarEstadoReservaUseCase
+    interface PagoPort
+    interface CondicionesOfertaPort
+    interface NotificadorPort
+    interface UnitOfWork
+  }
+  package "dominio" {
+    class Reserva
+    class FranjaDisponibilidad
+    class Pago
+    enum EstadoReserva
+    interface ReservaRepository
+    interface FranjaRepository
+  }
+  package "infraestructura" {
+    class "CatalogoHttpClient\n<<circuit breaker>>" as CHC
+    class PagoSimuladoAdapter
+    class "PagoSandboxAdapter\n<<esqueleto>>" as PSA
+    class CorreoSmtpAdapter
+    class SqlAlchemyUnitOfWork
+    class ReservaRepositoryPostgres
+    class FranjaRepositoryPostgres
+  }
+}
+APP --> IniciarReservaUseCase
+APP --> CancelarReservaUseCase
+APP --> ConsultarEstadoReservaUseCase
+IniciarReservaUseCase --> PagoPort
+IniciarReservaUseCase --> CondicionesOfertaPort
+IniciarReservaUseCase --> UnitOfWork
+IniciarReservaUseCase --> Reserva
+Reserva --> EstadoReserva
+Reserva "0..*" --> "1" FranjaDisponibilidad
+Reserva *-- Pago
+CHC ..|> CondicionesOfertaPort
+PagoSimuladoAdapter ..|> PagoPort
+PSA ..|> PagoPort
+CorreoSmtpAdapter ..|> NotificadorPort
+SqlAlchemyUnitOfWork ..|> UnitOfWork
+ReservaRepositoryPostgres ..|> ReservaRepository
+FranjaRepositoryPostgres ..|> FranjaRepository
+note right of dominio : dominio no importa nada de las otras capas\n(verificado con import-linter en la CI)
+@enduml

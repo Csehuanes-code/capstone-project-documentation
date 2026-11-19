@@ -1,0 +1,24 @@
+skinparam defaultFontName "DejaVu Sans"
+skinparam defaultFontSize 12
+skinparam shadowing false
+skinparam roundCorner 8
+skinparam ArrowColor #3d5560
+skinparam ArrowFontSize 11
+skinparam TitleFontSize 13
+skinparam NoteBackgroundColor #fdf5e8
+skinparam NoteBorderColor #d9a54a
+skinparam NoteFontSize 11
+skinparam ComponentBackgroundColor #e8f4f2
+skinparam ComponentBorderColor #1c7a73
+skinparam DatabaseBackgroundColor #ffffff
+skinparam DatabaseBorderColor #1c3a46
+skinparam QueueBackgroundColor #ffffff
+skinparam QueueBorderColor #d9643a
+skinparam NodeBackgroundColor #f7f9f6
+skinparam NodeBorderColor #1c3a46
+skinparam PackageBackgroundColor #ffffff
+skinparam PackageBorderColor #1c3a46
+skinparam ActorBorderColor #a8123e
+skinparam ActorBackgroundColor #fff5d6
+skinparam RectangleBorderColor #1c3a46
+skinparam CloudBackgroundColor #fffbe0

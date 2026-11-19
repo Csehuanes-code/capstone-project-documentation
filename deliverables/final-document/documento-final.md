@@ -11,7 +11,21 @@
 | **Demo en línea** | https://20-226-88-58.sslip.io |
 | **Repositorio** | https://github.com/Csehuanes-code/capstone-project-documentation |
 
-Este documento cierra la fase de diseño. Parte de los requisitos, restricciones y escenarios de calidad ya entregados (`deliverables/requirements-document/`) y de la comparación de propuestas arquitectónicas (`architectural-proposals.md`). Todo lo que se describe aquí está implementado en el prototipo y desplegado en la nube: los diagramas reflejan el código y la infraestructura reales, no una intención.
+Este documento reúne el diseño arquitectónico, la implementación del prototipo y su validación. Parte de los requisitos, restricciones y escenarios de calidad ya entregados (`deliverables/requirements-document/`) y de la comparación de propuestas arquitectónicas (`architectural-proposals.md`). Todo lo que se describe está implementado en el prototipo y desplegado en la nube: los diagramas reflejan el código y la infraestructura reales, no una intención.
+
+**Contenido:**
+
+1. Estilo arquitectónico
+2. Modelo de datos
+3. Diseño de interfaces
+4. Componentes (diagrama de paquetes)
+5. Despliegue
+6. Registro de decisiones (ADR)
+7. Implementación del prototipo: casos de uso, flujo crítico y organización del código
+8. Evaluación arquitectónica (ATAM-lite)
+9. Impacto comparativo
+10. Validación frente a las restricciones
+11. Evidencias y acceso
 
 ---
 
@@ -463,9 +477,9 @@ erDiagram
 2. **Por qué no persistencia políglota.** La propuesta inicial sugería una base documental (MongoDB) para el catálogo, porque cada tipo de atractivo tiene atributos distintos. Se resolvió con columnas **JSONB** dentro de PostgreSQL (`oferta.atributos`, `tipo_servicio.esquema_atributos`): se tiene esquema flexible donde hace falta y relacional en todo lo demás, con un solo motor que aprender, respaldar y monitorear. Un segundo motor no aportaba nada que el piloto necesitara y sí agregaba costo operativo (RC-E01, RC-E04).
 3. **Por qué una base por servicio.** Ningún servicio puede leer ni escribir la base de otro. Así se respeta la autonomía de cada microservicio y una migración en Catálogo no puede romper Reservas. También se aísla la información comercial de los prestadores (RC-N03). Que compartan instancia es una decisión de costo del piloto: cada base tiene su propio usuario y contraseña, y separarlas en instancias distintas no exige cambiar código.
 4. **Tablas técnicas que sostienen la integración:**
-   - `outbox`: el evento se guarda en la **misma transacción** que el cambio de negocio y un proceso aparte lo publica en RabbitMQ. Nunca hay un cambio sin evento ni un evento sin cambio.
-   - `evento_procesado`: registra los eventos ya consumidos para que un mensaje repetido no se aplique dos veces.
-   - `proyeccion_*` y `reserva_hecho`: copias de lectura de datos de otros servicios (CQRS ligero). Permiten que IA y Analítica respondan sin consultar en línea a Catálogo ni a Reservas.
+    - `outbox`: el evento se guarda en la **misma transacción** que el cambio de negocio y un proceso aparte lo publica en RabbitMQ. Nunca hay un cambio sin evento ni un evento sin cambio.
+    - `evento_procesado`: registra los eventos ya consumidos para que un mensaje repetido no se aplique dos veces.
+    - `proyeccion_*` y `reserva_hecho`: copias de lectura de datos de otros servicios (CQRS ligero). Permiten que IA y Analítica respondan sin consultar en línea a Catálogo ni a Reservas.
 5. **Evolución prevista.** Si la carga crece: réplicas de lectura para Catálogo e IA, caché (Redis) para las consultas más frecuentes y separar `reservas_db` en su propia instancia. Ninguna de estas mejoras cambia el modelo lógico.
 
 ---
@@ -696,25 +710,25 @@ Formato de cada ADR: contexto, decisión, alternativas consideradas, consecuenci
 - **Contexto:** Cinco estudiantes con roles fijos, 12 semanas y cuatro entregables formales con fecha (RC-E03, RC-E04). La arquitectura debía decidirse con evidencia y no congelarse al inicio.
 - **Decisión:** **Scrum adaptado con revisiones arquitectónicas ligeras tipo ATAM (ATAM-lite)**, en 6 sprints de 2 semanas. Cada sprint cierra con una revisión de escenarios de calidad y riesgos sobre las decisiones del sprint. Se trabaja en ramas con pull requests revisados y CI obligatoria por servicio.
 - **Alternativas:**
-  - **Cascada:** exige congelar requisitos antes de diseñar, y aquí la arquitectura se decidió con evidencia incremental.
-  - **Scrum puro:** sin revisiones de arquitectura, el diseño tiende a degradarse.
-  - **Kanban:** no se alinea con entregas formales con fecha.
+    - **Cascada:** exige congelar requisitos antes de diseñar, y aquí la arquitectura se decidió con evidencia incremental.
+    - **Scrum puro:** sin revisiones de arquitectura, el diseño tiende a degradarse.
+    - **Kanban:** no se alinea con entregas formales con fecha.
 - **Consecuencias:**
-  - (+) Los sprints coinciden con los entregables, y el cambio de monolito modular a microservicios se tomó con información real (ver ADR-02).
-  - (−) Las revisiones ATAM-lite cuestan tiempo de reunión en cada cierre de sprint.
+    - (+) Los sprints coinciden con los entregables, y el cambio de monolito modular a microservicios se tomó con información real (ver ADR-02).
+    - (−) Las revisiones ATAM-lite cuestan tiempo de reunión en cada cierre de sprint.
 
 ### ADR-02 — Estilo arquitectónico
 
 - **Estado:** Aceptada. Reemplaza la recomendación preliminar de monolito modular del documento de propuestas.
 - **Contexto:** Disponibilidad ≥ 99 % (RC-T04), alta concurrencia estacional (RC-T03), crecimiento progresivo (RC-T05), separación de componentes (RC-ARQ04), equipo de 5 con evaluación individual (RC-E03), 12 semanas (RC-E04) y USD 20.000 (RC-E01).
 - **Decisión:**
-  - **Microservicios ligeros orientados al dominio** (variante A2): 5 servicios (Auth, Catálogo, Reservas, IA, Analítica), un API Gateway (Traefik) y comunicación híbrida. REST para consultas y eventos en RabbitMQ (exchange topic `turismo`) para propagar hechos.
-  - Clean Architecture dentro de cada servicio y PWA como cliente.
-  - El flujo crítico (cupo + pago + reserva) ocurre en **una transacción local de Reservas**, así que no se necesita una saga distribuida. Los demás servicios se enteran por eventos (coreografía) y solo actualizan vistas de lectura.
+    - **Microservicios ligeros orientados al dominio** (variante A2): 5 servicios (Auth, Catálogo, Reservas, IA, Analítica), un API Gateway (Traefik) y comunicación híbrida. REST para consultas y eventos en RabbitMQ (exchange topic `turismo`) para propagar hechos.
+    - Clean Architecture dentro de cada servicio y PWA como cliente.
+    - El flujo crítico (cupo + pago + reserva) ocurre en **una transacción local de Reservas**, así que no se necesita una saga distribuida. Los demás servicios se enteran por eventos (coreografía) y solo actualizan vistas de lectura.
 - **Alternativas:** monolito modular (26/35), serverless (24/35), capas tradicional (21/35) y microservicios con Kubernetes + service mesh (descartada por costo). Los motivos están en la sección 1.5.
 - **Consecuencias:**
-  - (+) Fallos aislados, escalado independiente, propiedad clara por integrante y consumidores nuevos sin tocar a los productores.
-  - (−) Más piezas que operar, consistencia eventual entre servicios y la necesidad de contratos de eventos versionados. Se mitiga con la plantilla `comun`, los contratos en `contratos/` y Docker Compose.
+    - (+) Fallos aislados, escalado independiente, propiedad clara por integrante y consumidores nuevos sin tocar a los productores.
+    - (−) Más piezas que operar, consistencia eventual entre servicios y la necesidad de contratos de eventos versionados. Se mitiga con la plantilla `comun`, los contratos en `contratos/` y Docker Compose.
 
 ### ADR-03 — Tipo de base de datos
 
@@ -722,28 +736,28 @@ Formato de cada ADR: contexto, decisión, alternativas consideradas, consecuenci
 - **Contexto:** Las reservas y los pagos exigen consistencia fuerte. El catálogo tiene atributos que varían por tipo de servicio. La Ley 1581 exige consentimiento y auditoría. El presupuesto y el plazo favorecen pocas tecnologías (RC-ARQ02, RC-E01, RC-E02).
 - **Decisión:** **Base de datos relacional PostgreSQL 16**, con **una base por microservicio** en una misma instancia durante el piloto. Los atributos heterogéneos van en columnas **JSONB**. Cada servicio tiene tablas `outbox` y `evento_procesado` para la integración confiable por eventos.
 - **Alternativas:**
-  - **Persistencia políglota (PostgreSQL + MongoDB para catálogo + Redis):** más motores que operar sin un beneficio medible en el piloto. JSONB cubre el esquema flexible.
-  - **Una sola base compartida por todos los servicios:** acopla los servicios por la base y anula la autonomía de los microservicios.
-  - **Bases NoSQL para todo:** pierde las transacciones ACID que impiden la sobreventa y el doble cobro.
+    - **Persistencia políglota (PostgreSQL + MongoDB para catálogo + Redis):** más motores que operar sin un beneficio medible en el piloto. JSONB cubre el esquema flexible.
+    - **Una sola base compartida por todos los servicios:** acopla los servicios por la base y anula la autonomía de los microservicios.
+    - **Bases NoSQL para todo:** pierde las transacciones ACID que impiden la sobreventa y el doble cobro.
 - **Consecuencias:**
-  - (+) Un solo motor que aprender y respaldar, ACID donde importa, aislamiento de datos por servicio y separación futura en instancias sin tocar código.
-  - (−) No hay consultas entre bases. Los reportes que cruzan dominios se construyen con eventos (Analítica). La instancia compartida es un punto único de falla en el piloto, y se acepta por costo.
+    - (+) Un solo motor que aprender y respaldar, ACID donde importa, aislamiento de datos por servicio y separación futura en instancias sin tocar código.
+    - (−) No hay consultas entre bases. Los reportes que cruzan dominios se construyen con eventos (Analítica). La instancia compartida es un punto único de falla en el piloto, y se acepta por costo.
 
 ### ADR-04 — Comunicación e integración (resumen)
 
 - **Decisión:**
-  - REST/JSON a través del gateway para el cliente.
-  - Eventos asíncronos en RabbitMQ (exchange topic `turismo`, routing key = tipo de evento) con **outbox transaccional**, **consumidores idempotentes** y **colas dead-letter**.
-  - Una sola llamada síncrona entre servicios en el flujo de reserva: Reservas → Catálogo, para pedir las condiciones de la oferta, con timeout de 1 s y circuit breaker. Hay otra fuera del flujo crítico: Catálogo → Reservas, para validar que la reserva esté completada antes de aceptar una calificación.
-  - Los contratos se publican en `contratos/` (OpenAPI y JSON Schema).
+    - REST/JSON a través del gateway para el cliente.
+    - Eventos asíncronos en RabbitMQ (exchange topic `turismo`, routing key = tipo de evento) con **outbox transaccional**, **consumidores idempotentes** y **colas dead-letter**.
+    - Una sola llamada síncrona entre servicios en el flujo de reserva: Reservas → Catálogo, para pedir las condiciones de la oferta, con timeout de 1 s y circuit breaker. Hay otra fuera del flujo crítico: Catálogo → Reservas, para validar que la reserva esté completada antes de aceptar una calificación.
+    - Los contratos se publican en `contratos/` (OpenAPI y JSON Schema).
 - **Eventos actuales:**
-  - `auth.notificacion.solicitada`
-  - `auth.prestador.verificacion_resuelta`
-  - `catalogo.oferta.*`
-  - `reservas.reserva.confirmada`
-  - `reservas.cancelacion.pendiente`
-  - `reservas.disputa.abierta`
-  - `analitica.zona.ocupacion_actualizada`
+    - `auth.notificacion.solicitada`
+    - `auth.prestador.verificacion_resuelta`
+    - `catalogo.oferta.*`
+    - `reservas.reserva.confirmada`
+    - `reservas.cancelacion.pendiente`
+    - `reservas.disputa.abierta`
+    - `analitica.zona.ocupacion_actualizada`
 
 ### ADR-05 — Estrategia de manejo de conectividad
 
@@ -766,12 +780,12 @@ Formato de cada ADR: contexto, decisión, alternativas consideradas, consecuenci
   | Infraestructura | Health checks y reinicio automático de contenedores. El gateway saca de la rotación a los servicios no listos. | Se recupera solo de caídas puntuales. |
 
 - **Alternativas:**
-  - **Reservas offline con sincronización posterior:** permitiría sobreventa, así que se descarta.
-  - **App nativa con base local:** cuesta más, exige publicar en tiendas y duplicar el desarrollo.
-  - **Integración solo síncrona entre servicios:** una caída se propaga en cascada.
+    - **Reservas offline con sincronización posterior:** permitiría sobreventa, así que se descarta.
+    - **App nativa con base local:** cuesta más, exige publicar en tiendas y duplicar el desarrollo.
+    - **Integración solo síncrona entre servicios:** una caída se propaga en cascada.
 - **Consecuencias:**
-  - (+) La experiencia se mantiene con señal débil y la plataforma tolera caídas parciales sin perder datos.
-  - (−) Para pagar sí se necesita conexión. Hay consistencia eventual: un contador de popularidad puede tardar unos segundos en reflejar una reserva.
+    - (+) La experiencia se mantiene con señal débil y la plataforma tolera caídas parciales sin perder datos.
+    - (−) Para pagar sí se necesita conexión. Hay consistencia eventual: un contador de popularidad puede tardar unos segundos en reflejar una reserva.
 
 ### Otras decisiones
 
@@ -784,10 +798,288 @@ Formato de cada ADR: contexto, decisión, alternativas consideradas, consecuenci
 
 ---
 
-## 7. Evidencias
+## 7. Implementación del prototipo
+
+### 7.1 Cobertura de casos de uso
+
+Se revisaron los 34 casos de uso del documento de requisitos contra los endpoints que existen en el código de cada microservicio. Un caso de uso cuenta como **implementado** si su flujo principal se puede ejecutar de punta a punta por la API. Cuenta como **parcial** si solo una parte está construida.
+
+| CU | Caso de uso | Prioridad | Estado | Evidencia (endpoint o componente) |
+|---|---|---|---|---|
+| CU-01 | Registrarse en la plataforma | 5 | ✅ Implementado | Auth `POST /auth/usuarios`, `POST /auth/confirmaciones` (correo de confirmación) |
+| CU-02 | Autenticarse | 5 | ✅ Implementado | Auth `POST /auth/sesiones`, `/sesiones/refresh`, `/sesiones/revocar` |
+| CU-03 | Recuperar contraseña | 4 | ❌ No implementado | — |
+| CU-04 | Gestionar perfil y preferencias | 4 | ❌ No implementado | — |
+| CU-05 | Configurar idioma y accesibilidad | 3 | ◐ Parcial | Selector ES/EN en la PWA y en las respuestas de la API; no hay ajustes de accesibilidad por usuario |
+| CU-06 | Ejercer derechos de datos personales | 4 | ❌ No implementado | Solo se registra el consentimiento (`consentimiento`) |
+| CU-07 | Consultar catálogo | 5 | ✅ Implementado | Catálogo `GET /catalogo/ofertas`, `/ofertas/{id}`, `/zonas`, `/tipos-servicio` |
+| CU-08 | Consultar disponibilidad | 5 | ✅ Implementado | Reservas `GET /ofertas/{id}/disponibilidad`, `/disponibilidad/cercanas` |
+| CU-09 | Guardar en favoritos | 2 | ✅ Implementado | Catálogo `POST/DELETE/GET /catalogo/favoritos` (API; sin pantalla) |
+| CU-10 | Crear itinerario | 3 | ✅ Implementado | Catálogo `POST/GET /catalogo/itinerarios`, `/items` (API; sin pantalla) |
+| CU-11 | **Reservar actividad (crítico)** | 5 | ✅ Implementado | Reservas `POST /reservas` (ver sección 7.2) |
+| CU-12 | Reservar en grupo | 3 | ✅ Implementado | `POST /reservas` con varias personas y acompañantes (`asistente`) |
+| CU-13 | Unirse a lista de espera | 3 | ✅ Implementado | Reservas `POST /franjas/{id}/lista-espera`, `GET /lista-espera/mias`, `DELETE` |
+| CU-14 | Cancelar reserva | 4 | ✅ Implementado | Reservas `POST /reservas/{id}/cancelar` con reembolso según la política copiada |
+| CU-15 | Consultar historial | 3 | ✅ Implementado | Reservas `GET /reservas/mias` |
+| CU-16 | Procesar pago | 5 | ✅ Implementado | `PagoPort` + `PagoSimuladoAdapter` (timeout 5 s, 3 intentos) |
+| CU-17 | Reembolso o disputa | 3 | ✅ Implementado | Reservas `POST /reservas/{id}/disputas`, `GET/POST /admin/disputas` |
+| CU-18 | Recibir notificación | 4 | ✅ Implementado | Correos de confirmación de cuenta y de reserva (ES/EN) desde Reservas |
+| CU-19 | Calificar experiencia | 3 | ✅ Implementado | Catálogo `POST /ofertas/{id}/calificaciones` (verifica con Reservas que esté completada) |
+| CU-20 | Responder calificaciones | 2 | ✅ Implementado | Catálogo `POST /calificaciones/{id}/respuesta` |
+| CU-21 | Recomendación personalizada | 4 | ✅ Implementado | IA `GET /ia/recomendaciones`, `/criterios`, `/populares` |
+| CU-22 | Gestionar oferta | 5 | ✅ Implementado | Catálogo `POST/PUT/DELETE /catalogo/ofertas` |
+| CU-23 | Sincronizar inventario en lote | 3 | ✅ Implementado | Catálogo `POST /catalogo/lotes`, `GET /lotes/{id}` |
+| CU-24 | Política de cancelación y precios por temporada | 3 | ✅ Implementado | Catálogo `POST /ofertas/{id}/tarifas`, `PUT /politica-cancelacion` |
+| CU-25 | Reporte de ventas y comisiones | 3 | ◐ Parcial | Reservas `GET /prestador/reservas` (ventas); no hay cálculo de comisiones |
+| CU-26 | Solicitar verificación como prestador | 4 | ✅ Implementado | Auth `POST /auth/prestadores/verificaciones` |
+| CU-27 | Gestionar usuarios y roles | 4 | ❌ No implementado | Solo existe el administrador inicial |
+| CU-28 | Verificar y aprobar prestadores | 4 | ✅ Implementado | Auth `GET /auth/admin/verificaciones`, `POST /{id}/decision` |
+| CU-29 | Moderar contenido | 3 | ◐ Parcial | Catálogo `PUT /calificaciones/{id}/moderacion`; no hay moderación de fotos |
+| CU-30 | Indicadores y capacidad de carga | 4 | ✅ Implementado | Analítica `GET /analitica/indicadores`, `/indicadores.csv`, `/alertas` |
+| CU-31 | Umbrales de capacidad por zona | 3 | ✅ Implementado | Analítica `GET/PUT /analitica/umbrales` |
+| CU-32 | Monitorear salud del sistema | 4 | ◐ Parcial | `/health` y `/health/ready` en cada servicio, logs JSON con `X-Correlation-Id`, health checks de Traefik; no hay panel |
+| CU-33 | Revisar log de auditoría | 3 | ◐ Parcial | Auth escribe `registro_auditoria`; no hay endpoint para consultarlo |
+| CU-34 | Integraciones y llaves de API | 2 | ❌ No implementado | — |
+
+| Medida | Resultado | Meta | Cumple |
+|---|---|---|---|
+| Casos de uso implementados completos | **24 de 34 (71 %)** | ≥ 60 % | ✅ |
+| Contando los parciales como medio caso | 26,5 de 34 (78 %) | — | — |
+| Casos de prioridad 5 (críticos) | **7 de 7 (100 %)** | — | ✅ |
+| Casos de prioridad 4 o 5 | 13 de 18 completos (72 %) | ≥ 60 % | ✅ |
+
+Los que faltan (recuperar contraseña, perfil, derechos de datos, gestión de usuarios y llaves de API) son de Auth y de administración. No bloquean ningún flujo de negocio y quedan en el backlog del siguiente incremento.
+
+### 7.2 Flujo crítico completo: reservar una actividad (CU-11)
+
+El flujo recorre todas las capas: **inicio** (pantalla), **procesamiento** (gateway, caso de uso y servicios), **persistencia** (transacción y eventos) y **respuesta** (comprobante y correo).
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor T as Turista (PWA)
+    participant GW as Traefik
+    participant R as Reservas
+    participant C as Catálogo
+    participant DB as reservas_db
+    participant MQ as RabbitMQ
+    participant IA as IA
+    participant AN as Analítica
+    T->>GW: POST /api/v1/reservas + JWT + Idempotency-Key
+    GW->>R: enruta (health check OK)
+    R->>R: valida JWT ES256 con la clave pública
+    R->>C: GET condiciones de la oferta (1 s, circuit breaker)
+    C-->>R: tarifa vigente y política
+    R->>DB: UPDATE franja SET cupo = cupo - n WHERE cupo >= n
+    R->>DB: INSERT reserva (pendiente_pago)
+    R->>R: cobra por PagoPort (simulado)
+    R->>DB: reserva = confirmada + pago + outbox (una transacción)
+    R-->>T: 201 + comprobante SMT-XXXXXX
+    R->>T: correo de confirmación (ES/EN)
+    R-)MQ: proceso de outbox publica reservas.reserva.confirmada
+    MQ-)IA: suma popularidad (evento_procesado)
+    MQ-)AN: registra reserva_hecho (evento_procesado)
+```
+
+*Figura 24. Flujo crítico CU-11 de punta a punta.*
+
+| Etapa | Qué ocurre | Evidencia verificada en la nube (reserva `SMT-FFZIC1`) |
+|---|---|---|
+| Inicio | El turista elige franja, personas y paga en la PWA | Figuras 12 y 13 (pantallas de detalle y comprobante) |
+| Procesamiento | Traefik enruta; Reservas valida el JWT, consulta a Catálogo y cobra | Respuesta HTTP 201 con `pago_aprobado = true` |
+| Persistencia | Cupo, reserva, pago y evento en una sola transacción de `reservas_db` | Fila en `reserva` (confirmada), `pago` (cobro aprobado, referencia `SIM-OK-…`) y `outbox` (publicado) |
+| Propagación | El evento llega a IA y a Analítica | `ia_db.proyeccion_oferta.reservas_confirmadas` pasó de 0 a 1; `analitica_db.reserva_hecho` tiene la fila `SMT-FFZIC1 · minca · 2 personas` |
+| Respuesta | Comprobante en pantalla y por correo | Correo «Reserva confirmada SMT-FFZIC1 — Tour cascadas de Minca» en el buzón de la demo |
+
+Las pruebas automatizadas cubren el mismo flujo: `test_reservar_devuelve_comprobante_idempotente_y_un_solo_evento` (Reservas, `tests/test_api.py`) y `test_postgres_ultimo_cupo_acepta_exactamente_una_reserva` (Reservas, `tests/test_postgres.py`, contra PostgreSQL real).
+
+### 7.3 Código organizado según la arquitectura
+
+| Evidencia exigida | Dónde se ve en el repositorio |
+|---|---|
+| **Código organizado según la arquitectura** | Una carpeta por microservicio en `microservices/`, más `comun/` (plantilla compartida), `contratos/` (OpenAPI y JSON Schema), `frontend/` (PWA) y `despliegue/` (gateway, bases y nube). Ver Figura 21. |
+| **Separación clara de componentes** | Cada servicio tiene su base de datos, su Dockerfile, sus pruebas y su workflow de CI. Ningún servicio importa código de otro: solo de `comun` y de los contratos. Dentro de cada servicio, las capas `dominio`, `aplicacion`, `infraestructura` y `api` están protegidas por contratos de **import-linter** que rompen la CI si alguien viola la dependencia. |
+| **Uso coherente del modelo de dominio** | Las entidades del modelo conceptual (Figura 2) son clases del dominio: `Reserva`, `FranjaDisponibilidad`, `Pago`, `EstadoReserva` en Reservas; `Oferta`, `Tarifa`, `PoliticaCancelacion` en Catálogo; `Usuario` y `SolicitudVerificacion` en Auth. Las reglas de negocio viven ahí (transiciones de estado, cupo, política copiada), no en los controladores ni en SQL suelto. |
+| **Pruebas** | Más de 360 pruebas automatizadas: Auth 71, Catálogo 89, Reservas 35, Analítica 24, IA ≈ 148, `comun` 11. Se ejecutan en GitHub Actions en cada cambio, con lint, import-linter y construcción de imagen. Todas en verde sobre `main`. |
+| **Capturas y demostración** | Sección 3.3 (13 capturas) y demo en línea: https://20-226-88-58.sslip.io |
+| **Despliegue del prototipo** | Sección 5: VM de Azure con Docker Compose, HTTPS (TLS 1.3, Let's Encrypt) y los 10 contenedores en ejecución |
+
+---
+
+## 8. Evaluación arquitectónica
+
+### 8.1 Método seleccionado y justificación
+
+Se aplicó **ATAM-lite**, la versión reducida del *Architecture Tradeoff Analysis Method* del SEI, que ya era parte de la metodología (ADR-01).
+
+| Método considerado | Para qué sirve | Por qué sí o por qué no |
+|---|---|---|
+| **ATAM-lite** (elegido) | Evaluar varios atributos de calidad a la vez con escenarios, y encontrar riesgos, puntos de sensibilidad y compromisos | Los riesgos principales del proyecto son **compromisos entre atributos**: disponibilidad contra costo, consistencia contra desacoplamiento, desempeño contra una sola VM. ATAM es el método hecho para eso. La versión ligera cabe en el cierre de cada sprint. |
+| ATAM completo | Lo mismo, con todos los stakeholders y varios días de taller | No hay acceso a los stakeholders reales (turistas, entidad gestora) ni tiempo para un taller de varios días |
+| SAAM | Evaluar modificabilidad con escenarios de cambio | Solo cubre mantenibilidad; aquí pesan más disponibilidad, desempeño y seguridad |
+| CBAM | Priorizar decisiones por costo y beneficio económico | Necesita datos de costo y beneficio que el piloto todavía no tiene. Se usa la versión cualitativa dentro del análisis de compromisos. |
+| ARID | Revisar diseños intermedios de una parte del sistema | Útil para un servicio, pero no evalúa la arquitectura completa |
+
+**Pasos aplicados:**
+
+1. Presentar los impulsores del negocio: las restricciones (sección 10) y los escenarios de calidad del documento de requisitos.
+2. Presentar la arquitectura (secciones 1 a 5).
+3. Identificar los enfoques arquitectónicos.
+4. Construir el árbol de utilidad y priorizar los escenarios por importancia (I) y dificultad (D).
+5. Analizar cada escenario contra el prototipo, con pruebas automatizadas y mediciones reales.
+6. Registrar riesgos, no-riesgos, puntos de sensibilidad y compromisos.
+
+### 8.2 Enfoques arquitectónicos identificados
+
+Microservicios con base de datos por servicio; API Gateway; outbox transaccional; consumidores idempotentes con colas de errores; actualización condicional atómica del cupo; clave de idempotencia; circuit breaker con timeout; proyecciones locales (CQRS ligero); JWT ES256 con validación local; PWA con service worker; Clean Architecture con reglas verificadas.
+
+### 8.3 Árbol de utilidad
+
+```mermaid
+flowchart LR
+    U(("Utilidad<br/>SierraMar")) --> DISP["Disponibilidad"]
+    U --> CONS["Consistencia"]
+    U --> DES["Desempeño"]
+    U --> SEG["Seguridad"]
+    U --> MAN["Mantenibilidad"]
+    U --> IAX["Explicabilidad<br/>y sostenibilidad"]
+    DISP --> E1["E1 · RabbitMQ cae durante una reserva (H,M)"]
+    DISP --> E2["E2 · IA o Analítica caen (H,L)"]
+    DISP --> E3["E3 · Catálogo no responde (H,M)"]
+    CONS --> E4["E4 · Dos turistas, último cupo (H,M)"]
+    CONS --> E5["E5 · Reintento de pago por red (H,M)"]
+    DES --> E6["E6 · 500 usuarios en temporada alta (H,H)"]
+    SEG --> E7["E7 · Token falsificado (H,L)"]
+    SEG --> E8["E8 · Eventos sin datos personales (M,L)"]
+    MAN --> E9["E9 · Nuevo consumidor de eventos (M,L)"]
+    IAX --> E10["E10 · Zona al 90 % de su capacidad (H,M)"]
+    IAX --> E11["E11 · Explicar cada recomendación (H,L)"]
+```
+
+*Figura 25. Árbol de utilidad. (I,D) = importancia y dificultad: H alta, M media, L baja.*
+
+### 8.4 Análisis de escenarios
+
+| # | Escenario (estímulo → respuesta esperada) | Enfoque que lo resuelve | Evidencia | Resultado |
+|---|---|---|---|---|
+| E1 | RabbitMQ cae mientras se confirman reservas → la reserva se confirma y el evento se publica cuando vuelve | Outbox transaccional | `test_outbox_reenvio_y_tolerancia_caida_broker` (`comun`) | ✅ No-riesgo |
+| E2 | IA o Analítica caen → catálogo y reservas siguen funcionando | Servicios fuera del camino síncrono; health checks que distinguen dependencias críticas | `test_dependencia_no_critica_caida_no_quita_el_listo` (IA); la PWA degrada solo el bloque de IA | ✅ No-riesgo |
+| E3 | Catálogo no responde → la reserva falla rápido sin tocar el cupo | Timeout de 1 s + circuit breaker | `test_error_500_abre_circuit_breaker`, `test_timeout_se_convierte_en_error_de_catalogo` (Reservas) | ✅ No-riesgo |
+| E4 | Dos turistas piden el último cupo al mismo tiempo → solo uno lo obtiene | `UPDATE` condicional + `CHECK` en la base | `test_postgres_ultimo_cupo_acepta_exactamente_una_reserva` (Reservas, PostgreSQL real) | ✅ No-riesgo |
+| E5 | Se corta la red y el turista vuelve a pagar → un solo cobro y una sola reserva | `Idempotency-Key` única en `reserva` | `test_reservar_devuelve_comprobante_idempotente_y_un_solo_evento` (Reservas) | ✅ No-riesgo |
+| E6 | 500 usuarios consultan en temporada alta → p95 < 800 ms | Lecturas separadas por servicio; caché de la PWA | **Medido en la nube:** con 50 usuarios simultáneos, p95 de 1,1 a 1,4 s; con 1 usuario, p50 ≈ 0,5 s (incluye la conexión TLS desde Colombia hasta Brasil) | ⚠️ **Riesgo R2** |
+| E7 | Alguien envía un token firmado con otra clave → se rechaza | JWT ES256 verificado con clave pública | `test_rechaza_firma_de_otra_clave_hs256_y_sin_jti` (`comun`) | ✅ No-riesgo |
+| E8 | Un evento viaja por el broker → no expone datos personales | Contratos de eventos sin datos de contacto | `test_evento_confirmacion_cumple_contratos_y_no_expone_datos_personales` (Reservas) | ✅ No-riesgo |
+| E9 | Se agrega un consumidor nuevo de reservas → no se toca al productor | Exchange topic + contratos versionados | Analítica e IA se suscribieron a `reservas.reserva.confirmada` sin cambios en Reservas | ✅ No-riesgo |
+| E10 | Una zona llega al 90 % de su capacidad → alerta y la IA propone alternativas | Analítica recalcula cada 60 s y publica la ocupación; IA reordena | `test_umbral_alerta_y_evento_para_ia_cumplen_el_contrato` (Analítica), `test_alerta_de_capacidad_cambia_la_recomendacion` y `test_oferta_en_zona_saturada_se_reemplaza_por_alternativa` (IA) | ✅ No-riesgo |
+| E11 | Cada recomendación debe explicarse → desglose que sume el puntaje | Puntaje multicriterio con pesos versionados | `test_el_total_es_la_suma_del_desglose` (IA); panel «¿Por qué veo esto?» | ✅ No-riesgo |
+
+### 8.5 Riesgos, puntos de sensibilidad y compromisos
+
+**Riesgos encontrados:**
+
+| ID | Riesgo | Atributo afectado | Acción propuesta |
+|---|---|---|---|
+| R1 | Toda la plataforma corre en **una sola VM**: si la VM cae, cae el servicio | Disponibilidad (99 %) | Segunda VM detrás de un balanceador y PostgreSQL gestionado con réplica (ruta de crecimiento, ADR-08) |
+| R2 | El **p95 medido (1,1–1,4 s con 50 usuarios)** no alcanza la meta de 800 ms | Desempeño | VM más cercana (región de EE. UU. cuando la suscripción lo permita), más vCPU, réplicas de Catálogo e IA, caché de búsquedas e índices GIN |
+| R3 | El proceso de outbox de Reservas no usa `SKIP LOCKED`; con varias réplicas publicaría eventos duplicados (los consumidores los descartan, pero con trabajo doble) | Escalabilidad | Adoptar en `comun` el patrón que ya usan Auth, Catálogo y Analítica antes de replicar Reservas |
+| R4 | Las 5 bases comparten una instancia de PostgreSQL | Disponibilidad | Separar instancias o usar un servicio gestionado; el código no cambia |
+| R5 | La pasarela de pagos es simulada | Adecuación funcional | Implementar `PagoSandboxAdapter` (Wompi o ePayco de pruebas) detrás del mismo `PagoPort` |
+
+**No-riesgos:** sobreventa (E4), doble cobro (E5), pérdida de eventos (E1), fallas en cascada desde IA o Analítica (E2), acoplamiento entre bases (cada servicio tiene la suya).
+
+**Puntos de sensibilidad** (un valor que, si cambia, cambia el comportamiento del atributo):
+
+- *Timeout de 1 s hacia Catálogo:* más alto vuelve lenta la reserva cuando Catálogo falla; más bajo rechaza reservas válidas en momentos de carga.
+- *Umbral de alerta del 90 %* (`ANALITICA_ALERT_RATIO`): define cuándo la IA empieza a desviar turistas.
+- *Pesos de la IA* (0,45 · 0,25 · 0,20 · 0,10): el peso de descongestión decide cuánto se redistribuye la demanda.
+- *Intervalo de recálculo de Analítica (60 s):* fija el retraso máximo entre una reserva y la alerta.
+
+**Compromisos (*trade-offs*):**
+
+- *Consistencia eventual vs. disponibilidad:* IA y Analítica se enteran unos segundos después, a cambio de que su caída no afecte las reservas.
+- *Una VM vs. costo:* USD 112 al mes en lugar de varias VMs con servicios gestionados, a cambio de un punto único de falla (R1).
+- *Un solo motor (PostgreSQL + JSONB) vs. persistencia políglota:* menos tecnologías que operar, a cambio de no tener una base documental especializada para el catálogo.
+- *Microservicios vs. monolito modular:* aislamiento de fallos y propiedad por integrante, a cambio de más piezas que desplegar.
+
+---
+
+## 9. Impacto comparativo
+
+Se compara la situación inicial (decisiones empíricas, sin arquitectura) con el sistema propuesto, tanto en el destino turístico como en la forma de diseñar.
+
+| Aspecto | Situación inicial (decisiones empíricas) | Sistema propuesto (SierraMar) |
+|---|---|---|
+| **Fuente de información** | Oferta dispersa en redes sociales, hoteles y sitios aislados, con datos desactualizados | Catálogo único y bilingüe, publicado solo por prestadores verificados con su RNT |
+| **Disponibilidad y cupos** | Se confirma por llamada o mensaje; dos agencias pueden vender el mismo cupo | Cupos reales descontados de forma atómica: la sobreventa es imposible (E4) |
+| **Pagos** | Transferencias o efectivo sin comprobante estándar; reintentos que pueden cobrar dos veces | Comprobante con código único, política de cancelación copiada y clave de idempotencia contra cobros dobles (E5) |
+| **Concentración turística** | Todos van a los mismos sitios (Tayrona) y la saturación se detecta cuando ya ocurrió | Capacidad de carga por zona, alerta al 90 % y recomendaciones que proponen alternativas tranquilas (E10) |
+| **Pequeños prestadores** | Poca visibilidad frente a operadores grandes | Formulario simple para publicar, y una IA con pesos públicos que no premia el tamaño del prestador (RC-ET02) |
+| **Gobernanza** | Sin indicadores consolidados; la planificación se hace por intuición | Indicadores por zona (reservas, visitantes, ingresos, ocupación) exportables a CSV |
+| **Recomendaciones** | Voz a voz o publicidad pagada, sin explicación | Recomendación explicable: cada sugerencia muestra por qué aparece |
+| **Turista internacional** | Información mayormente en español | Interfaz, respuestas de la API y correos en español e inglés |
+| **Decisiones de diseño** | La propuesta inicial elegía estilo y base de datos por intuición (monolito modular, MongoDB para catálogo) | Decisiones registradas en ADRs, contrastadas con restricciones y evaluadas con ATAM-lite usando pruebas y mediciones reales |
+| **Tolerancia a fallos** | Un sistema monolítico cae completo ante cualquier falla | Fallas aisladas: si caen IA, Analítica o el broker, se sigue reservando (E1, E2) |
+
+---
+
+## 10. Validación del diseño frente a las restricciones
+
+Se validan las restricciones del análisis de requisitos (`constraints-analysis.md`) y las derivadas que aparecen en la especificación (RC-N05, RC-N06, RC-D01, RC-P04, RC-P05). Los tipos son los de esa sección: arquitectónica (ARQ), técnica (T), económica (E), social (S), ambiental (A), normativa (N) y ética (ET). Además aparecen dos categorías de las restricciones derivadas: supuesto de diseño (D) y de proyecto (P).
+
+| Restricción | Tipo | Decisión arquitectónica asociada | Evidencia en la implementación | Resultado |
+|---|---|---|---|---|
+| RC-ARQ01 Paradigma orientado a objetos | ARQ | ADR-09 Stack | Entidades, casos de uso y adaptadores como clases en Python; componentes en TypeScript | ✅ Cumple |
+| RC-ARQ02 Justificación de base de datos | ARQ | ADR-03 | Comparación PostgreSQL + JSONB vs. persistencia políglota (sección 2.3) | ✅ Cumple |
+| RC-ARQ03 Comunicación justificada | ARQ | ADR-04 | REST para consultas y eventos con outbox; contratos en `contratos/` | ✅ Cumple |
+| RC-ARQ04 Separación clara de componentes | ARQ | ADR-02 | 5 servicios con base propia; capas verificadas por import-linter en la CI | ✅ Cumple |
+| RC-ARQ05 Decisiones basadas en trade-offs | ARQ | ADR-01 a ADR-09, ATAM-lite | Alternativas y consecuencias en cada ADR; compromisos en la sección 8.5 | ✅ Cumple |
+| RC-T01 Acceso móvil y web | T | ADR-05, PWA | Diseño adaptable desde 360 px, instalable; capturas en celular (Figuras 19 y 20) | ✅ Cumple |
+| RC-T02 Integración con múltiples fuentes | T | ADR-04, Catálogo | `POST /catalogo/lotes` y tabla `fuente_externa`; no hay fuentes externas reales conectadas | ◐ Parcial |
+| RC-T03 Alta concurrencia (p95 < 800 ms, 500 usuarios) | T | ADR-02, ADR-03 | Medido: p95 1,1–1,4 s con 50 usuarios simultáneos (sección 8.4, E6) | ❌ No cumple aún (R2) |
+| RC-T04 Disponibilidad ≥ 99 % | T | ADR-05, ADR-08 | Aislamiento de fallos, outbox, health checks y reinicio automático; pero una sola VM | ◐ Parcial (R1) |
+| RC-T05 Crecimiento progresivo | T | ADR-02, ADR-08 | Cada servicio es una imagen independiente; consumidores nuevos sin tocar productores (E9); escalado horizontal aún no probado | ◐ Parcial |
+| RC-E01 Presupuesto ≤ USD 20.000 | E | ADR-08 | VM de USD 112 al mes: 1,7 % del presupuesto en 3 meses | ✅ Cumple |
+| RC-E02 Software libre y nube de bajo costo | E | ADR-08, ADR-09 | Todo el stack es de código abierto; certificado gratuito | ✅ Cumple |
+| RC-E03 Cinco estudiantes con roles fijos | E | ADR-02 | Un microservicio por integrante, cada uno con su CI | ✅ Cumple |
+| RC-E04 12 semanas | E | ADR-01, ADR-02 | Prototipo integrado y desplegado dentro del plazo | ✅ Cumple |
+| RC-S01 Baja alfabetización digital (≤ 5 pantallas) | S | Diseño de interfaces | Reservar toma 3 pantallas | ✅ Cumple |
+| RC-S02 Español e inglés | S | Diseño de interfaces | Toda la PWA, las respuestas de la API y los correos en ES/EN | ✅ Cumple |
+| RC-S03 Inclusión de pequeños operadores | S | Catálogo, panel del prestador | Formulario simple para publicar ofertas y franjas (Figura 17) | ✅ Cumple |
+| RC-S04 Accesibilidad WCAG 2.1 AA | S | Diseño de interfaces | HTML semántico, foco visible, textos alternativos, `prefers-reduced-motion`; sin auditoría formal | ◐ Parcial |
+| RC-A01 Recomendar destinos alternativos | A | ADR-07 | IA reemplaza ofertas de zonas saturadas (E10) | ✅ Cumple |
+| RC-A02 Reducir impacto en ecosistemas sensibles | A | Modelo de datos, Analítica | `zona.ecosistema_sensible`, umbral propio por zona y alertas | ✅ Cumple |
+| RC-A03 Difundir buenas prácticas ambientales | A | Diseño de interfaces | Sección «Turismo responsable» e índice de sostenibilidad en la explicación de la IA; no hay contenido ambiental por ficha ni en los correos | ◐ Parcial |
+| RC-A04 Monitorear capacidad de carga (alerta al 90 %) | A | Analítica | Recálculo cada 60 s y alerta al 90 % (`ANALITICA_ALERT_RATIO = 0.90`) | ✅ Cumple |
+| RC-N01 Protección de datos (TLS y cifrado) | N | ADR-06, ADR-08 | TLS 1.3 medido en la demo; bases sin puertos públicos; disco de Azure cifrado en reposo por defecto | ✅ Cumple |
+| RC-N02 Ley 1581 (consentimiento y derechos) | N | ADR-06 | Consentimiento versionado al registrarse; no hay endpoints de acceso o supresión (CU-06) | ◐ Parcial |
+| RC-N03 Proteger información comercial | N | ADR-03, ADR-06 | Base por servicio; el prestador solo ve sus reservas (`listar_por_prestador`) | ✅ Cumple |
+| RC-N04 Autenticación segura | N | ADR-06 | Argon2id, JWT ES256 de 15 min, revocación de sesión, bloqueo por intentos fallidos; no hay WAF | ✅ Cumple |
+| RC-N05 Registro Nacional de Turismo | N | Auth, Catálogo | El prestador declara NIT y RNT y el administrador aprueba; el RNT no se muestra en la ficha | ◐ Parcial |
+| RC-N06 No almacenar datos de tarjeta | N | `PagoPort` | `pago` guarda solo monto, estado y referencia de la pasarela | ✅ Cumple |
+| RC-ET01 Recomendaciones explicadas | ET | ADR-07 | 100 % de los ítems con desglose (E11) | ✅ Cumple |
+| RC-ET02 Sin sesgo comercial | ET | ADR-07 | Cuatro criterios públicos (`GET /ia/criterios`), ninguno por tamaño del prestador; pesos versionados | ✅ Cumple |
+| RC-ET03 Privacidad de los turistas | ET | ADR-06 | No se recolecta geolocalización; los eventos no llevan datos de contacto (E8) | ✅ Cumple |
+| RC-ET04 Transparencia en el tratamiento de datos | ET | ADR-06 | `registro_auditoria` de eventos de autenticación; no se registra cada acceso a datos personales | ◐ Parcial |
+| RC-D01 Conectividad intermitente | D | ADR-05 | PWA con caché, clave de idempotencia, comprobante por correo | ✅ Cumple |
+| RC-P04 Mínimo 60 % de los casos de uso | P | ADR-01 | 71 % implementados completos (sección 7.1) | ✅ Cumple |
+| RC-P05 Evaluación arquitectónica justificada | P | ADR-01 | ATAM-lite aplicado (sección 8) | ✅ Cumple |
+
+| Resultado | Cantidad |
+|---|---|
+| ✅ Cumple | 26 de 35 (74 %) |
+| ◐ Parcial | 8 de 35 (23 %) |
+| ❌ No cumple aún | 1 de 35 (3 %) |
+
+Las restricciones parciales y la no cumplida coinciden con los riesgos de la sección 8.5. Todas tienen una acción concreta que no exige cambiar la arquitectura: más infraestructura (R1, R2), completar casos de uso de Auth (CU-06) o agregar contenido (RC-A03, RC-N05).
+
+---
+
+## 11. Evidencias y acceso
 
 - **Demo en línea:** https://20-226-88-58.sslip.io. Cuentas de prueba: `turista@turismo.co` / `Turista-Demo-2026` y `prestador@turismo.co` / `Prestador-Demo-2026`.
-- **Flujo completo verificado en la nube:** registro con confirmación de correo, verificación de prestador, publicación de 7 ofertas con 42 franjas, y reservas pagadas. Por ejemplo, la reserva `SMT-RTUBCE` se guardó en `reservas_db`, subió la popularidad en `ia_db` y quedó registrada en `analitica_db`.
+- **Repositorio:** https://github.com/Csehuanes-code/capstone-project-documentation (código de los 5 servicios, `comun`, `contratos`, `frontend`, `despliegue` y este documento en `deliverables/final-document/`).
 - **Integración continua:** GitHub Actions por microservicio (lint, import-linter, pruebas y construcción de imagen), en verde sobre `main`.
 - **Contratos:** `contratos/` (OpenAPI de cada servicio y JSON Schema de cada evento).
+- **Mediciones:** TLS 1.3 negociado (`TLS_AES_128_GCM_SHA256`). Prueba de carga del 18 de noviembre de 2026: 1.800 peticiones con 50 usuarios simultáneos, todas exitosas (sección 8.4).
 - **Fotografías:** Wikimedia Commons con licencias CC BY / CC BY-SA. Los créditos están en la página `/creditos` de la aplicación.

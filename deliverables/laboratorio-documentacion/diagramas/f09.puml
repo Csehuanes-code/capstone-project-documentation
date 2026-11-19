@@ -1,0 +1,29 @@
+@startuml
+!include estilo.iuml
+title Vista de calidad: disponibilidad del flujo de reserva (EC-DISP-01)
+actor Turista
+component "PWA\n(app en caché)" as PWA
+component "Traefik\n(health checks)" as TR
+component "Reservas" as RES
+component "Catálogo" as CAT
+database "reservas_db\n(tabla outbox)" as RDB
+queue "RabbitMQ" as MQ
+component "IA y Analítica" as IAAN
+database "volumen de\nPostgreSQL" as VOL
+Turista --> PWA
+PWA --> TR : HTTPS + Idempotency-Key
+TR --> RES
+RES --> CAT : 1 s + circuit breaker
+RES --> RDB
+RDB ..> MQ : proceso de outbox
+MQ ..> IAAN
+RDB -- VOL
+note right of PWA : (7) la app abre sin señal;\nun reintento de pago no cobra dos veces
+note right of TR : (1) GET /health/ready cada 10 s;\nsaca de la rotación al servicio no listo
+note left of RES : (2) restart: unless-stopped:\nel contenedor caído se levanta solo
+note right of CAT : (6) si Catálogo no responde en 1 s,\nse rechaza sin tocar el cupo
+note left of RDB : (5) si RabbitMQ cae, los eventos\nesperan aquí; la reserva sigue
+note right of IAAN : (4) fuera del camino síncrono:\nsu caída no afecta la reserva;\nmensajes inválidos a *.errores
+note right of VOL : (3) los datos sobreviven a reinicios\nde contenedores y de la VM
+note bottom of VOL : Punto único de falla del prototipo: la VM.\nRuta al 99 % sostenido: segunda VM + balanceador\ny PostgreSQL gestionado con réplica (ADR-08).
+@enduml

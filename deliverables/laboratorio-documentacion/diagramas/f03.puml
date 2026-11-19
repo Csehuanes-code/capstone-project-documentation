@@ -1,0 +1,35 @@
+@startuml
+!include estilo.iuml
+title Módulos de primer nivel del monorepo
+package "capstone-project-documentation" {
+  package "frontend\n(PWA React + TypeScript)" as FE
+  package "despliegue" as DESP {
+    package "gateway\n(rutas Traefik)" as GW
+    package "postgres\n(5 bases y usuarios)" as PGI
+    package "nube\n(HTTPS y buzón)" as NUBE
+  }
+  package "microservices" as MS {
+    package "auth-service" as AU
+    package "catalog-service" as CA
+    package "reservas-service" as RE
+    package "ia-service" as IA
+    package "analitica-service" as AN
+  }
+  package "contratos" as CON {
+    package "*-openapi.json" as OAS
+    package "eventos\n(JSON Schema)" as EVT
+  }
+  package "comun\n(plantilla común)" as COM
+}
+FE ..> OAS : consume
+GW ..> MS : enruta a
+AU ..> COM
+CA ..> COM
+RE ..> COM
+IA ..> COM
+AN ..> COM
+MS ..> CON : implementa
+COM ..> EVT : valida el sobre
+note bottom of COM : JWT ES256, outbox y relevo,\nconsumidor idempotente,\nX-Correlation-Id, logs JSON, /health
+note right of DESP : docker-compose.yml (local)\ndocker-compose.nube.yml (Azure)
+@enduml

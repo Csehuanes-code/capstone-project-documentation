@@ -1,0 +1,32 @@
+@startuml
+!include estilo.iuml
+title Reserva confirmada (componentes y conectores)
+actor "Turista\n(PWA)" as T
+component "Traefik\n(gateway, HTTPS)" as GW
+component "Reservas" as RES
+component "Catálogo" as CAT
+component "Adaptador de pago\n(simulado)" as PAG
+database "reservas_db" as RDB
+database "catalogo_db" as CDB
+component "Proceso de outbox\n(dentro de Reservas)" as OUT
+queue "RabbitMQ\nexchange «turismo»" as MQ
+component "Analítica" as AN
+component "IA" as IA
+component "SMTP\n(Mailpit en la demo)" as SMTP
+T -down-> GW : HTTPS 443\nPOST /api/v1/reservas\n+ Idempotency-Key + JWT
+GW -down-> RES : HTTP interno\n(JWT validado en Reservas)
+RES -right-> CAT : REST GET condiciones\n(timeout 1 s, circuit breaker)
+RES -left-> PAG : PagoPort (en proceso)\ntimeout 5 s, hasta 3 intentos
+RES =down=> RDB : SQL\nUPDATE condicional
+CAT =down=> CDB : SQL
+OUT =up=> RDB : SQL\nfilas sin publicar
+OUT .down.> MQ : AMQP publicar
+MQ .down.> AN : AMQP
+MQ .down.> IA : AMQP
+RES -down-> SMTP : comprobante por correo
+legend right
+  —— call-return síncrono (HTTPS/REST)
+  ══ acceso a base de datos (SQL)
+  ··> evento publicar/suscribir (AMQP)
+endlegend
+@enduml
