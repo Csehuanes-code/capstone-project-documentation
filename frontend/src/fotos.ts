@@ -31,7 +31,7 @@ export const LEMA_ZONA: Record<string, [string, string]> = {
 
 // Por nombre de la experiencia primero (más preciso), luego por categoría.
 const POR_NOMBRE: [RegExp, ClaveFoto[]][] = [
-  [/minca|cascada|waterfall/i, ["minca-cascada", "minca"]],
+  [/minca|cascada|waterfall/i, ["minca-cascada", "sierra", "minca"]],
   [/pueblito|chairama/i, ["pueblito", "pueblito-terrazas"]],
   [/cristal/i, ["playa-cristal", "tayrona"]],
   [/cocina|gastronom|cooking|comida/i, ["cocina", "taganga"]],

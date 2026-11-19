@@ -1,13 +1,63 @@
-import { useState, type FormEvent } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { Link, useLocation, useParams } from "react-router-dom";
+import { createPortal } from "react-dom";
+import qrcode from "qrcode-generator";
 import { api, pesos, type Comprobante } from "../api";
 import { fotosDeOferta } from "../fotos";
 import { useIdioma } from "../idioma";
 import { useSesion } from "../sesion";
 import { Aviso, Estado, Insignia, tonoEstado, useCarga } from "../ui";
 
+/** QR del comprobante como SVG (un rectángulo por módulo oscuro). */
+function CodigoQR({ texto }: { texto: string }) {
+  const svg = useMemo(() => {
+    const qr = qrcode(0, "M");
+    qr.addData(texto);
+    qr.make();
+    const n = qr.getModuleCount();
+    const partes: string[] = [];
+    for (let f = 0; f < n; f++) for (let c = 0; c < n; c++) if (qr.isDark(f, c)) partes.push(`M${c} ${f}h1v1h-1z`);
+    return { n, d: partes.join("") };
+  }, [texto]);
+  return (
+    <div className="qr">
+      <svg viewBox={`0 0 ${svg.n} ${svg.n}`} shapeRendering="crispEdges" role="img" aria-label={`Código QR: ${texto}`}>
+        <path d={svg.d} fill="#0a2130" />
+      </svg>
+    </div>
+  );
+}
+
+const COLORES_CONFETI = ["#0b8f8a", "#5fd3c6", "#f5a245", "#ff7a59", "#ffd89c"];
+
+/** Celebración breve al llegar desde el pago aprobado. */
+function Celebracion({ codigo, alCerrar }: { codigo: string; alCerrar: () => void }) {
+  useEffect(() => { const t = setTimeout(alCerrar, 2600); return () => clearTimeout(t); }, [alCerrar]);
+  // Se monta en <body>: dentro de la página animada, el fondo fijo quedaría recortado a su caja.
+  return createPortal(
+    <div className="celebracion" onClick={alCerrar} role="status">
+      <div className="celebracion-caja">
+        <div className="confeti" aria-hidden="true">
+          {Array.from({ length: 26 }, (_, i) => (
+            <i key={i} style={{ left: `${(i * 37) % 100}%`, background: COLORES_CONFETI[i % COLORES_CONFETI.length], animationDelay: `${(i % 7) * 90}ms` }} />
+          ))}
+        </div>
+        <svg className="check" viewBox="0 0 100 100" aria-hidden="true">
+          <circle cx="50" cy="50" r="45" />
+          <path d="M30 52 L44 66 L71 37" />
+        </svg>
+        <h2>¡Reserva confirmada!</h2>
+        <p className="tenue" style={{ margin: 0 }}>Tu código es <b className="codigo" style={{ fontSize: "1.1rem" }}>{codigo}</b>. También te lo enviamos por correo.</p>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
 export default function ComprobantePagina() {
   const { id = "" } = useParams();
+  const ubicacion = useLocation();
+  const [celebrar, setCelebrar] = useState(Boolean((ubicacion.state as { nueva?: boolean } | null)?.nueva));
   const { t, idioma } = useIdioma();
   const { usuario } = useSesion();
   const [mensaje, setMensaje] = useState<{ tipo: "ok" | "error"; texto: string } | null>(null);
@@ -37,7 +87,8 @@ export default function ComprobantePagina() {
     <Estado carga={reserva}>
       {(r) => (
         <div className="columnas">
-          <section className="tarjeta ticket">
+          {celebrar && <Celebracion codigo={r.codigo} alCerrar={() => setCelebrar(false)} />}
+          <section className="tarjeta ticket aparece">
             <div className="ticket-foto">
               <img src={fotosDeOferta({ nombre_es: r.nombre_oferta })[0]} alt="" />
               <div>
@@ -45,10 +96,12 @@ export default function ComprobantePagina() {
                 <h1>{r.nombre_oferta}</h1>
               </div>
             </div>
+            <div className="pase">
+            <div>
             <div className="ticket-cuerpo">
               <div className="fila entre">
-                <div className="codigo">{r.codigo}</div>
                 <Insignia tono={tonoEstado(r.estado)}>{r.estado}</Insignia>
+                <span className="tenue" style={{ fontSize: ".85rem" }}>{r.fecha_servicio} · {r.hora_servicio.slice(0, 5)}</span>
               </div>
               <p style={{ margin: 0 }}>{idioma === "en" ? r.mensaje_en : r.mensaje_es}</p>
             </div>
@@ -66,6 +119,14 @@ export default function ComprobantePagina() {
                 <tr><th>{t("politica")}</th><td>{idioma === "en" ? r.politica_cancelacion.descripcion_en : r.politica_cancelacion.descripcion_es}</td></tr>
               </tbody>
             </table>
+            </div>
+            </div>
+            <aside className="pase-talon">
+              <span className="etiqueta" style={{ fontSize: ".7rem", letterSpacing: ".16em", textTransform: "uppercase", color: "var(--tenue)", fontWeight: 700 }}>{idioma === "en" ? "Show at check-in" : "Presenta al llegar"}</span>
+              <CodigoQR texto={`${window.location.origin}/reservas/${r.reserva_id} · ${r.codigo}`} />
+              <div className="codigo">{r.codigo}</div>
+              <small className="tenue">{r.personas} {r.personas === 1 ? "persona" : "personas"} · {pesos(r.total, r.moneda)}</small>
+            </aside>
             </div>
           </section>
 

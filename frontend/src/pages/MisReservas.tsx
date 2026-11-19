@@ -63,7 +63,7 @@ export default function MisReservas() {
         )}
       </Estado>
 
-      <h2>Lista de espera</h2>
+      <h2 className="separado">Lista de espera</h2>
       <Estado carga={lista}>
         {(es) => es.length === 0 ? <p className="tenue">{t("vacio")}</p> : (
           <div className="pila">

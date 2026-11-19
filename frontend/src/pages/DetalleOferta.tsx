@@ -53,7 +53,7 @@ export default function DetalleOfertaPagina() {
           acompanantes: acompanantes.split(",").map((s) => s.trim()).filter(Boolean),
         },
       });
-      if (r.pago_aprobado) navegar(`/reservas/${r.reserva_id}`);
+      if (r.pago_aprobado) navegar(`/reservas/${r.reserva_id}`, { state: { nueva: true } });
       else setError({ texto: en ? r.mensaje_en : r.mensaje_es });
       franjas.recargar();
     } catch (err) {

@@ -1,17 +1,19 @@
 /* SierraMar: la fotografía manda. Fondos limpios color bruma de mar, tipografía firme,
    acentos del sol del Caribe y verde mar. Las fotos van a sangre completa en portada y destinos. */
 :root {
-  --fondo: #f3f6f5;
+  --fondo: #f1f7f6;
   --superficie: #ffffff;
-  --superficie-2: #eaf0ef;
-  --texto: #0f2430;
-  --tenue: #586c73;
-  --marca: #0e7c7b;
-  --marca-oscura: #0a5f5f;
-  --noche: #0b2531;
-  --sol: #f2a541;
-  --sol-claro: #ffd28a;
-  --borde: #dbe4e2;
+  --superficie-2: #e6f1ef;
+  --texto: #0c2230;
+  --tenue: #557079;
+  --marca: #0b8f8a;
+  --marca-oscura: #08706c;
+  --marca-clara: #5fd3c6;
+  --noche: #0a2130;
+  --sol: #f5a245;
+  --sol-claro: #ffd89c;
+  --coral: #ff7a59;
+  --borde: #d9e7e4;
   --ok: #1e8a52;
   --alerta: #b16b06;
   --peligro: #b3261e;
@@ -28,8 +30,8 @@
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --fondo: #08161c; --superficie: #102229; --superficie-2: #152c34; --texto: #e6efee; --tenue: #9db0ae;
-    --marca: #3fb5ad; --marca-oscura: #2c968f; --borde: #223a42; --noche: #050f14;
+    --fondo: #07151b; --superficie: #0f222a; --superficie-2: #14303a; --texto: #e6f1f0; --tenue: #9db4b2;
+    --marca: #3cc6b9; --marca-oscura: #2aa79c; --marca-clara: #7fe3d7; --borde: #20404a; --noche: #040e13; --coral: #ff9478;
     --ok: #5fcf8f; --alerta: #f2b14c; --peligro: #ff8a80;
     --sombra: 0 1px 2px rgb(0 0 0 / 30%), 0 14px 34px -16px rgb(0 0 0 / 60%);
     color-scheme: dark;

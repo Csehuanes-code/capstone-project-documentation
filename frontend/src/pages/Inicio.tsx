@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { api, INTERESES, pesos, type DetalleOferta, type ItemRecomendado, type Oferta, type Recomendacion, type Zona } from "../api";
 import { FOTO_ZONA, LEMA_ZONA, foto, fotosDeOferta } from "../fotos";
 import { Icono } from "../ilustraciones";
+import MapaZonas, { type EstadoZona } from "../MapaZonas";
 import { useIdioma } from "../idioma";
 import { Aviso, Estado, Insignia, useCarga } from "../ui";
 
@@ -20,11 +21,20 @@ const CATEGORIA_EN: Record<string, string> = {
 // Orden de la franja de destinos: el primero va en grande.
 const ORDEN_ZONAS = ["tayrona", "minca", "centro", "taganga", "los-naranjos", "rodadero"];
 
+// Un color por criterio de la IA: afinidad, calidad, descongestión, sostenibilidad.
+const COLOR_CRITERIO = ["#0b8f8a", "#5fd3c6", "#f5a245", "#ff7a59"];
+const NOMBRE_CRITERIO: Record<string, [string, string]> = {
+  afinidad: ["Afinidad", "Affinity"], calidad: ["Calidad", "Quality"],
+  descongestion: ["Descongestión", "Low crowds"], sostenibilidad: ["Sostenibilidad", "Sustainability"],
+};
+const GRAVEDAD: Record<string, number> = { desconocida: 0, tranquila: 1, moderada: 2, muy_concurrida: 3 };
+
 interface Popular { oferta_id: string; zona: { nivel: string; ocupacion: number | null }; reservas_confirmadas: number }
 interface OfertaEnriquecida extends Oferta { desde: number | null; moneda: string; fotos: string[] }
 
 function TarjetaRecomendada({ item, zonaCodigo }: { item: ItemRecomendado; zonaCodigo?: string }) {
-  const { t } = useIdioma();
+  const { t, idioma } = useIdioma();
+  const en = idioma === "en";
   const [imagen] = fotosDeOferta({ nombre_es: item.nombre }, zonaCodigo);
   return (
     <article className="tarjeta recomendada">
@@ -45,6 +55,18 @@ function TarjetaRecomendada({ item, zonaCodigo }: { item: ItemRecomendado; zonaC
           {item.motivo === "alternativa_descongestion" && <Insignia tono="alerta">{t("alternativa")}</Insignia>}
         </div>
         <p className="tenue">{item.explicacion}</p>
+        <div className="desglose-barra" role="img"
+          aria-label={item.desglose.map((a) => `${a.etiqueta} +${a.aporte.toFixed(2)}`).join(", ")}>
+          {item.desglose.map((a, i) => (
+            <span key={a.criterio} title={`${a.etiqueta}: +${a.aporte.toFixed(2)}`}
+              style={{ width: `${Math.max(0, a.aporte) * 100}%`, background: COLOR_CRITERIO[i % COLOR_CRITERIO.length], animationDelay: `${i * 120}ms` }} />
+          ))}
+        </div>
+        <div className="desglose-leyenda">
+          {item.desglose.map((a, i) => (
+            <span key={a.criterio}><i style={{ background: COLOR_CRITERIO[i % COLOR_CRITERIO.length] }} />{NOMBRE_CRITERIO[a.criterio]?.[en ? 1 : 0] ?? a.etiqueta.split(" ")[0]} <b>+{a.aporte.toFixed(2)}</b></span>
+          ))}
+        </div>
         <details>
           <summary>{t("porQue")}</summary>
           <div className="pila" style={{ marginTop: ".7rem" }}>
@@ -75,6 +97,7 @@ function TarjetaOferta({ o, zona, aforo }: { o: OfertaEnriquecida; zona?: Zona; 
     <Link to={`/ofertas/${o.id}`} className="tarjeta oferta">
       <div className="oferta-imagen">
         <img src={o.fotos[0]} alt={en ? o.nombre_en : o.nombre_es} loading="lazy" />
+        {o.desde != null && <span className="precio-flotante">{pesos(o.desde, o.moneda)}</span>}
         <div className="etiquetas">
           {categoria ? <span>{en ? CATEGORIA_EN[categoria] ?? categoria : categoria}</span> : <span />}
           <span className="estrella">★ {o.total_calificaciones ? o.calificacion_promedio.toFixed(1) : (en ? "New" : "Nuevo")}</span>
@@ -150,6 +173,22 @@ export default function Inicio() {
     return lista.sort((a, b) => ORDEN_ZONAS.indexOf(a.codigo) - ORDEN_ZONAS.indexOf(b.codigo));
   }, [zonas.datos]);
   const experienciasEn = (zonaId: string) => (catalogo.datos ?? []).filter((o) => o.zona_id === zonaId).length;
+  const textoExperiencias = (n: number) => en ? `${n} ${n === 1 ? "experience" : "experiences"}` : `${n} ${n === 1 ? "experiencia" : "experiencias"}`;
+  // Estado de cada zona para el mapa: la ocupación más alta entre sus ofertas (IA la recibe de Analítica).
+  const estadosZona = useMemo(() => {
+    const r: Record<string, EstadoZona> = {};
+    for (const o of catalogo.datos ?? []) {
+      const a = aforos.datos?.find((p) => p.oferta_id === o.id);
+      if (!a) continue;
+      const previo = r[o.zona_id];
+      const nivel = a.zona.nivel ?? "desconocida";
+      if (!previo || (GRAVEDAD[nivel] ?? 0) > (GRAVEDAD[previo.nivel] ?? 0)
+        || ((a.zona.ocupacion ?? -1) > (previo.ocupacion ?? -1) && nivel === previo.nivel)) {
+        r[o.zona_id] = { nivel, ocupacion: a.zona.ocupacion };
+      }
+    }
+    return r;
+  }, [catalogo.datos, aforos.datos]);
   const irAlCatalogo = () => document.getElementById("catalogo")?.scrollIntoView({ behavior: "smooth" });
   const zonaActiva = zonaFiltro ? zonaPorId(zonaFiltro) : undefined;
 
@@ -157,6 +196,7 @@ export default function Inicio() {
     <>
       <section className="heroe a-sangre">
         <img className="heroe-foto" src={foto("heroe")} alt={en ? "Coves of Tayrona National Park" : "Ensenadas del Parque Nacional Natural Tayrona"} />
+        <div className="heroe-orbes" aria-hidden="true"><span /><span /><span /></div>
         <div className="contenedor heroe-contenido">
           <span className="pildora">{en ? "Santa Marta · Colombian Caribbean" : "Santa Marta · Caribe colombiano"}</span>
           <h1>{en ? <>Where the Sierra Nevada <em>meets the sea</em></> : <>Donde la Sierra Nevada <em>se encuentra con el mar</em></>}</h1>
@@ -193,18 +233,29 @@ export default function Inicio() {
           </div>
         </div>
         <div className="destinos">
-          {destinos.map((z) => (
-            <button key={z.id} className="destino" aria-pressed={zonaFiltro === z.id}
-              onClick={() => { setZonaFiltro(zonaFiltro === z.id ? "" : z.id); irAlCatalogo(); }}>
-              <img src={foto(FOTO_ZONA[z.codigo])} alt="" loading="lazy" />
-              <span className="destino-texto">
-                <strong>{en ? z.nombre_en : z.nombre_es}</strong>
-                <span>{LEMA_ZONA[z.codigo]?.[en ? 1 : 0]}</span>
-                <small>{experienciasEn(z.id)} {en ? "experiences" : "experiencias"}</small>
-              </span>
-            </button>
-          ))}
+          {destinos.map((z) => {
+            const n = experienciasEn(z.id);
+            const pronto = catalogo.datos != null && n === 0;
+            return (
+              <button key={z.id} className={`destino aparece${pronto ? " proximamente" : ""}`} aria-pressed={zonaFiltro === z.id}
+                onClick={() => { if (pronto) return; setZonaFiltro(zonaFiltro === z.id ? "" : z.id); irAlCatalogo(); }}>
+                <img src={foto(FOTO_ZONA[z.codigo])} alt="" loading="lazy" />
+                <span className="destino-texto">
+                  <strong>{en ? z.nombre_en : z.nombre_es}</strong>
+                  <span>{LEMA_ZONA[z.codigo]?.[en ? 1 : 0]}</span>
+                  {pronto
+                    ? <small className="pronto">{en ? "Coming soon" : "Próximamente"}</small>
+                    : <small>{textoExperiencias(n)}</small>}
+                </span>
+              </button>
+            );
+          })}
         </div>
+      </section>
+
+      <section className="seccion aparece">
+        <MapaZonas zonas={destinos} estados={estadosZona} elegida={zonaFiltro}
+          onElegir={(id) => { if (experienciasEn(id) === 0) return; setZonaFiltro(id); irAlCatalogo(); }} />
       </section>
 
       <section id="para-ti" className="ia a-sangre seccion">
@@ -262,13 +313,13 @@ export default function Inicio() {
         <Estado carga={catalogo}>
           {() => visibles.length === 0 ? <Aviso>{t("vacio")}</Aviso> : (
             <div className="rejilla">
-              {visibles.map((o) => <TarjetaOferta key={o.id} o={o} zona={zonaPorId(o.zona_id)} aforo={aforoDe(o.id)} />)}
+              {visibles.map((o) => <div key={o.id} className="aparece" style={{ display: "grid" }}><TarjetaOferta o={o} zona={zonaPorId(o.zona_id)} aforo={aforoDe(o.id)} /></div>)}
             </div>
           )}
         </Estado>
       </section>
 
-      <section className="seccion pilares">
+      <section className="seccion pilares aparece">
         <img src={foto("sierra")} alt="" loading="lazy" />
         <div>
           <span className="sobretitulo">{en ? "Responsible tourism" : "Turismo responsable"}</span>
