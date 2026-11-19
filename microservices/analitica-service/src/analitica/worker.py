@@ -111,13 +111,13 @@ class RelevoOutbox:
                     routing_key: str, body: bytes, event_id: str,
                     channel: pika.adapters.blocking_connection.BlockingChannel = channel,
                 ) -> None:
-                    ok = channel.basic_publish(
+                    # Con confirm_delivery, pika 1.x LANZA UnroutableError/NackError si RabbitMQ no confirma;
+                    # basic_publish no devuelve nada (antes se comprobaba su retorno y todo quedaba "fallido").
+                    channel.basic_publish(
                         exchange=config.exchange, routing_key=routing_key, body=body,
                         properties=pika.BasicProperties(delivery_mode=2, content_type="application/json", message_id=event_id, type=routing_key),
                         mandatory=True,
                     )
-                    if not ok:
-                        raise RuntimeError("RabbitMQ no confirmó el evento")
 
                 while not self._stop.is_set():
                     count = self._repo.publicar_pendientes(publish)
